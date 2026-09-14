@@ -1,0 +1,5 @@
+- [ ] Make it so that maps users can select whether to include OSM/Overture or both
+- [ ] Add isochrones back to the map, with an option to toggle on and off (both of these can be in settings, along with the show IDs)
+- [ ] Add a raw tags view
+- [ ] Map centering is funky and often hides the POI
+- [ ] Make the conference location POI more distinct
