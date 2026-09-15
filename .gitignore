@@ -1,6 +1,5 @@
 /tmp
 /out-tsc
-/dist
 /.venv
 /.pytest_cache
 /.output.txt
