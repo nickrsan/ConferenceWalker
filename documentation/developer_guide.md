@@ -87,9 +87,11 @@ The pipeline ingests POIs from OpenStreetMap PBF exports and Overture Maps GeoPa
   - `haversine_distance_meters(lon1, lat1, lon2, lat2)`: Computes geodesic distance in meters.
   - `normalize_name(name)`: Strips punctuation, accents, corporate suffixes (LLC, Inc, Corp), leading articles, and whitespace.
   - `compute_name_similarity(name1, name2)`: Fuzzy token set and string ratio using RapidFuzz.
+  - `merge_two_pois(poi_a, poi_b)`: Combines attributes between matching records. **OpenStreetMap precedence guarantee**: OpenStreetMap data strictly takes precedence over Overture data for coordinates (retaining OSM's exact coordinates to avoid positional degradation from noisy Overture coordinates), categories, venue names, formatted addresses, phone numbers, websites, and opening hours. Overture data provides enrichment for fields missing in OSM and populates `overture_id`.
   - `deduplicate_pois(pois, max_distance_meters=25.0, min_similarity=80.0)`: Spatial grid indexing and Disjoint Set Union (Union-Find) clustering merging matching venue attributes without losing data.
 - `pipeline/preprocess.py`:
   - Command-line interface orchestrating the end-to-end pipeline.
+  - **Genuine OpenStreetMap IDs**: Invokes `osmium export` with `-a type,id` to export canonical OpenStreetMap node and way IDs directly into `@id` properties, ensuring genuine OSM node IDs (e.g. `90498377`) are reported in `osm_id` and `id` (`osm_90498377`) rather than internal sequential numbering (`node_{idx}`).
 
 ### 3.3 CLI Usage
 ```bash
@@ -130,16 +132,18 @@ export interface ConferenceWalkerConfig {
   defaultCategories: POICategory[];
   filtersExpandedByDefault: boolean;
   overtureMinConfidence: number;
+  excludeOvertureOnlyByDefault: boolean;
 }
 
 export const APP_CONFIG: ConferenceWalkerConfig = {
   // Config option: set which categories show up by default
   defaultCategories: ALL_CATEGORIES,
   filtersExpandedByDefault: true,
-  overtureMinConfidence: 0.6,
+  overtureMinConfidence: 0.98,
+  excludeOvertureOnlyByDefault: false,
 };
 ```
-Organizers can customize `APP_CONFIG.defaultCategories` to curate which categories are enabled by default on initial application load (e.g., enabling only restaurants and coffee, or all 10 categories).
+Organizers can customize `APP_CONFIG.defaultCategories` to curate which categories are enabled by default on initial application load, and `excludeOvertureOnlyByDefault` to determine if Overture-only places are excluded on initial launch.
 
 ### 4.2 Data Contracts (`src/types/poi.ts`)
 ```typescript
@@ -172,19 +176,22 @@ export interface POIProperties {
   order_url?: string | null;
 }
 
-export interface POIFeature {
-  type: 'Feature';
-  geometry: {
-    type: 'Point';
-    coordinates: [number, number]; // [lon, lat]
-  };
-  properties: POIProperties;
+export interface FilterState {
+  categories: Set<POICategory>;
+  allowedWalkTimes: Set<number | 'outside'>;
+  openNowOnly: boolean;
+  includeUnknownHours: boolean;
+  selectedCuisines: Set<string>;
+  searchQuery: string;
+  favoritesOnly: boolean;
+  excludeOvertureOnly: boolean;
 }
 ```
 
 ### 4.3 State Management
 - **`FilterStore` (`src/state/filterState.ts`)**:
-  - Centralized reactive store managing multi-dimensional filtering across categories, walk distances, opening hours status, cuisines, text search, and favorites.
+  - Centralized reactive store managing multi-dimensional filtering across categories, walk distances, opening hours status, cuisines, text search, favorites, and source exclusion.
+  - **Overture Exclusion Filter**: `setExcludeOvertureOnly(enabled: boolean, allFeatures, favorites)` allows excluding noisy POIs that only originate from Overture Maps (`sources: ['overture']`) while retaining OpenStreetMap places and verified merged records. State persists to `localStorage` under `conference_walker_exclude_overture` and initializes from URL parameter `?exclude_overture=true`.
   - Configurable Defaults: accepts a customized default category array via constructor, respected on initialization and filter resets.
   - Subscriptions: `store.subscribe((state, matchingIds) => void)` notifying UI and Map components when criteria change.
   - MapLibre Filter Generation: `store.buildMapLibreFilter(allFeatures, favorites)` generates hardware-accelerated filter expressions applied directly to MapLibre GL JS layers.
@@ -195,13 +202,19 @@ export interface POIFeature {
   - Manages application-wide debug mode displaying OpenStreetMap and Overture GERS entity IDs on cards and in the detail sheet.
   - Exposes global developer shortcuts on the window object: `window.toggleDebug()`, `window.setDebug(boolean)`, and `window.ConferenceWalkerDebug`.
 
-### 4.4 Map Engine & Vector Layers (`src/map/mapManager.ts`, `src/map/mapStyles.ts`)
+### 4.4 UI Components & Settings Panel (`src/ui/sidebar.ts`, `src/ui/poiDetail.ts`)
+- **Settings Panel**: Dedicated settings drawer accessed via `#btn-toggle-settings` (`⚙️ Settings`) in the sidebar header. Contains:
+  - `#chk-disable-overture`: Disables Overture-only data to reduce positional noise.
+  - `#chk-debug-mode`: Toggles OSM & GERS ID pills on POI cards and detail sheets.
+  - Modal view switching: Opening Settings automatically collapses the Filters panel, and vice versa. Closing Settings returns seamlessly to the distance-sorted venue list.
+
+### 4.5 Map Engine & Vector Layers (`src/map/mapManager.ts`, `src/map/mapStyles.ts`)
 - **Basemap Engine**: Uses OpenFreeMap Positron (`https://tiles.openfreemap.org/styles/positron`), an open-source, API-key-free vector tile service.
 - **Vector Icon Badges**: Pre-rasterizes crisp category SVG badges at 2x pixel ratio for high-DPI displays.
 - **POI Name Labels**: Renders on-map venue names directly beneath category symbols with text halos and automatic collision-avoidance layout.
 - **Bidirectional Selection**: Synchronizes map marker selections with sidebar card highlights and viewport camera centering.
 
-### 4.5 Distance Calculation & Navigation (`src/utils/directions.ts`)
+### 4.6 Distance Calculation & Navigation (`src/utils/directions.ts`)
 - **Haversine Distance**:
   ```typescript
   calculateDistanceMeters(coord1, coord2): number
@@ -219,7 +232,7 @@ export interface POIFeature {
   ```
   Generates `geo:LAT,LON?q=LAT,LON(Name)` for iOS and Android native map handoff.
 
-### 4.6 Opening Hours Evaluator & Weekly Schedule Parser (`src/utils/openingHours.ts`)
+### 4.7 Opening Hours Evaluator & Weekly Schedule Parser (`src/utils/openingHours.ts`)
 Evaluates standard OpenStreetMap opening hours syntax against client local time and parses weekly schedules using `opening_hours.js`:
 ```typescript
 evaluateOpeningHours(openingHoursStr: string | null | undefined, now?: Date): 'open' | 'closed' | 'unknown'
@@ -253,7 +266,7 @@ Supported syntax patterns:
 - Explicit day closures: `Su off; Mo-Sa 10:00-18:00`
 - Non-standard / missing strings gracefully return `'unknown'` and fallback to raw hours display.
 
-### 4.7 Layout Containment & Scroll Isolation
+### 4.8 Layout Containment & Scroll Isolation
 To prevent unwanted window scroll jumps and recursive container reflows:
 - **`#app-container` & `#sidebar-container`**: Configured with `position: fixed`, strict bounding bounds, and CSS `contain: strict`.
 - **`poi-list-container`**: Uses `flex: 1 1 0%`, `min-height: 0`, and `overscroll-behavior: contain` to prevent flex items from expanding document body dimensions.

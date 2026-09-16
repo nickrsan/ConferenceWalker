@@ -197,4 +197,81 @@ describe('FilterStore logic and predicates', () => {
     expect(store.getDefaultCategories()).toEqual(['bar', 'hotel']);
     expect(store.getState().categories).toEqual(new Set(['bar', 'hotel']));
   });
+
+  it('excludes data only sourced from Overture when excludeOvertureOnly is enabled', () => {
+    const poisWithMerged: POIFeature[] = [
+      ...samplePOIs,
+      {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [-121.49, 38.58] },
+        properties: {
+          id: 'merged_venue',
+          name: 'Merged Brewery & Pub',
+          category: 'bar',
+          walk_time_minutes: 5,
+          address: '1500 K St',
+          phone: null,
+          website: null,
+          opening_hours: null,
+          cuisines: [],
+          sources: ['osm', 'overture'],
+          osm_id: '99',
+          overture_id: 'ov_99',
+        },
+      },
+    ];
+
+    const store = new FilterStore();
+    const favorites = new Set<string>();
+
+    // By default, excludeOvertureOnly is false -> all sources included
+    expect(store.isExcludeOvertureOnly()).toBe(false);
+    let matches = store.getMatchingIds(poisWithMerged, favorites);
+    expect(matches.has('coffee_5min')).toBe(true); // OSM only
+    expect(matches.has('italian_restaurant')).toBe(true); // Overture only
+    expect(matches.has('mexican_restaurant')).toBe(true); // Overture only
+    expect(matches.has('merged_venue')).toBe(true); // Merged OSM + Overture
+
+    // Enable excludeOvertureOnly
+    let notifyCallCount = 0;
+    const unsubscribe = store.subscribe((state) => {
+      notifyCallCount++;
+      expect(state.excludeOvertureOnly).toBe(store.isExcludeOvertureOnly());
+    });
+
+    store.setExcludeOvertureOnly(true, poisWithMerged, favorites);
+    expect(store.isExcludeOvertureOnly()).toBe(true);
+    expect(notifyCallCount).toBe(1);
+
+    matches = store.getMatchingIds(poisWithMerged, favorites);
+    // Overture-only places are excluded
+    expect(matches.has('italian_restaurant')).toBe(false);
+    expect(matches.has('mexican_restaurant')).toBe(false);
+    // OSM places and merged places remain visible
+    expect(matches.has('coffee_5min')).toBe(true);
+    expect(matches.has('coffee_15min')).toBe(true);
+    expect(matches.has('park_outside')).toBe(true);
+    expect(matches.has('merged_venue')).toBe(true);
+
+    // MapLibre filter expression excludes overture-only IDs
+    const filterExpr = store.buildMapLibreFilter(poisWithMerged, favorites);
+    const includedIds: string[] = filterExpr[2][1];
+    expect(includedIds).not.toContain('italian_restaurant');
+    expect(includedIds).not.toContain('mexican_restaurant');
+    expect(includedIds).toContain('merged_venue');
+    expect(includedIds).toContain('coffee_5min');
+
+    // Resetting search/category filters preserves the excludeOvertureOnly setting
+    store.resetFilters(poisWithMerged, favorites);
+    expect(store.isExcludeOvertureOnly()).toBe(true);
+
+    // Disable excludeOvertureOnly -> all sources return
+    store.setExcludeOvertureOnly(false, poisWithMerged, favorites);
+    expect(store.isExcludeOvertureOnly()).toBe(false);
+    matches = store.getMatchingIds(poisWithMerged, favorites);
+    expect(matches.has('italian_restaurant')).toBe(true);
+    expect(matches.has('mexican_restaurant')).toBe(true);
+
+    unsubscribe();
+  });
 });

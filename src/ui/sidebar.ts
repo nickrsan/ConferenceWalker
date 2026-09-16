@@ -28,6 +28,7 @@ export class SidebarComponent {
   private events: SidebarEvents;
   private activeTab: 'explore' | 'favorites' = 'explore';
   private isFiltersOpen = true; // Displayed by default in full length with no results
+  private isSettingsOpen = false; // Settings panel for data source and debug options
   private isMobileExpanded = false;
   private selectedPoiId: string | null = null;
 
@@ -77,6 +78,21 @@ export class SidebarComponent {
 
   public setFiltersExpanded(expanded: boolean): void {
     this.isFiltersOpen = expanded;
+    if (expanded) {
+      this.isSettingsOpen = false;
+    }
+    this.render();
+  }
+
+  public isSettingsExpanded(): boolean {
+    return this.isSettingsOpen;
+  }
+
+  public setSettingsExpanded(expanded: boolean): void {
+    this.isSettingsOpen = expanded;
+    if (expanded) {
+      this.isFiltersOpen = false;
+    }
     this.render();
   }
 
@@ -178,15 +194,29 @@ export class SidebarComponent {
               <span class="conference-name" title="${this.region?.name || ''}">${confTitle}</span>
             </div>
           </div>
-          <button
-            type="button"
-            class="btn-toggle-filters ${this.isFiltersOpen ? 'active' : ''}"
-            id="btn-toggle-filters"
-            aria-expanded="${this.isFiltersOpen}"
-          >
-            <span class="icon">${this.isFiltersOpen ? '✕' : '⚙️'}</span>
-            <span>${this.isFiltersOpen ? 'Close Filters' : 'Filters'}</span>
-          </button>
+          <div class="header-actions">
+            <button
+              type="button"
+              class="btn-toggle-settings ${this.isSettingsOpen ? 'active' : ''}"
+              id="btn-toggle-settings"
+              aria-expanded="${this.isSettingsOpen}"
+              aria-label="Settings"
+              title="Settings"
+            >
+              <span class="icon">⚙️</span>
+              <span>Settings</span>
+            </button>
+            <button
+              type="button"
+              class="btn-toggle-filters ${this.isFiltersOpen ? 'active' : ''}"
+              id="btn-toggle-filters"
+              aria-expanded="${this.isFiltersOpen}"
+              aria-label="${this.isFiltersOpen ? 'Close filters' : 'Open filters'}"
+            >
+              <span class="icon">${this.isFiltersOpen ? '✕' : '🎛️'}</span>
+              <span>${this.isFiltersOpen ? 'Close' : 'Filters'}</span>
+            </button>
+          </div>
         </div>
 
         <div class="search-bar">
@@ -243,14 +273,6 @@ export class SidebarComponent {
             />
             <span class="label-text">Include Unknown Hours</span>
           </label>
-          <label class="toggle-checkbox-label debug-toggle-label">
-            <input
-              type="checkbox"
-              id="chk-debug-mode"
-              ${this.debugStore.isDebugMode() ? 'checked' : ''}
-            />
-            <span class="label-text">🛠️ Show OSM & GERS IDs</span>
-          </label>
           <button type="button" class="btn-text-action" id="btn-reset-filters">Reset Filters</button>
         </div>
 
@@ -265,7 +287,65 @@ export class SidebarComponent {
         </div>
       </div>
 
-      <div class="poi-list-container" role="region" aria-label="Points of Interest List" style="${this.isFiltersOpen ? 'display: none;' : ''}">
+      <div
+        class="settings-panel ${this.isSettingsOpen ? 'open' : 'closed'}"
+        id="settings-panel"
+        role="region"
+        aria-label="Application Settings"
+        style="${this.isSettingsOpen ? '' : 'display: none;'}"
+      >
+        <div class="settings-panel-header">
+          <div class="settings-title-row">
+            <h2 class="settings-title">⚙️ Settings</h2>
+            <button type="button" class="btn-close-settings" id="btn-close-settings" aria-label="Close settings">✕</button>
+          </div>
+          <p class="settings-subtitle">Manage data sources and inspection tools.</p>
+        </div>
+
+        <div class="settings-content">
+          <div class="settings-section">
+            <h3 class="settings-section-title">Data Sources</h3>
+            <div class="settings-option">
+              <label class="toggle-checkbox-label settings-checkbox-label">
+                <input
+                  type="checkbox"
+                  id="chk-disable-overture"
+                  ${this.filterStore.isExcludeOvertureOnly() ? 'checked' : ''}
+                />
+                <span class="label-text">Disable Overture-only data</span>
+              </label>
+              <p class="settings-option-desc">
+                Exclude places only sourced from Overture Maps to reduce noisy locations and poor positional accuracy. OpenStreetMap places and verified merged records remain visible.
+              </p>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3 class="settings-section-title">Developer & Inspection</h3>
+            <div class="settings-option">
+              <label class="toggle-checkbox-label settings-checkbox-label">
+                <input
+                  type="checkbox"
+                  id="chk-debug-mode"
+                  ${this.debugStore.isDebugMode() ? 'checked' : ''}
+                />
+                <span class="label-text">🛠️ Show OSM & GERS IDs</span>
+              </label>
+              <p class="settings-option-desc">
+                Display raw OpenStreetMap node/way IDs and Overture GERS identifiers on venue cards and detail panels.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-footer-actions">
+          <button type="button" class="btn-collapse-settings" id="btn-collapse-settings">
+            Done
+          </button>
+        </div>
+      </div>
+
+      <div class="poi-list-container" role="region" aria-label="Points of Interest List" style="${this.isFiltersOpen || this.isSettingsOpen ? 'display: none;' : ''}">
         ${
           matchingFeatures.length === 0
             ? `
@@ -379,9 +459,29 @@ export class SidebarComponent {
       this.container.classList.toggle('mobile-expanded', this.isMobileExpanded);
     });
 
+    // Toggle settings panel
+    this.container.querySelector('#btn-toggle-settings')?.addEventListener('click', () => {
+      this.isSettingsOpen = !this.isSettingsOpen;
+      if (this.isSettingsOpen) {
+        this.isFiltersOpen = false;
+      }
+      this.render();
+    });
+
+    // Close settings handlers
+    const closeSettingsHandler = () => {
+      this.isSettingsOpen = false;
+      this.render();
+    };
+    this.container.querySelector('#btn-close-settings')?.addEventListener('click', closeSettingsHandler);
+    this.container.querySelector('#btn-collapse-settings')?.addEventListener('click', closeSettingsHandler);
+
     // Toggle filters collapsible
     this.container.querySelector('#btn-toggle-filters')?.addEventListener('click', () => {
       this.isFiltersOpen = !this.isFiltersOpen;
+      if (this.isFiltersOpen) {
+        this.isSettingsOpen = false;
+      }
       this.render();
     });
 
@@ -391,7 +491,18 @@ export class SidebarComponent {
       this.render();
     });
 
-    // Debug mode toggle
+    // Disable Overture-only data toggle in Settings panel
+    this.container.querySelector('#chk-disable-overture')?.addEventListener('change', (e) => {
+      const checked = (e.target as HTMLInputElement).checked;
+      this.filterStore.setExcludeOvertureOnly(
+        checked,
+        this.allFeatures,
+        this.favoritesStore.getFavorites()
+      );
+      this.render();
+    });
+
+    // Debug mode toggle in Settings panel
     this.container.querySelector('#chk-debug-mode')?.addEventListener('change', (e) => {
       const checked = (e.target as HTMLInputElement).checked;
       this.debugStore.setDebugMode(checked);

@@ -4,7 +4,7 @@
  * startup display options, and region defaults.
  */
 
-import { POICategory, ALL_CATEGORIES } from './types/poi';
+import { POICategory, ALL_CATEGORIES, DEFAULT_CATEGORIES } from './types/poi';
 
 export interface ConferenceWalkerConfig {
   /**
@@ -23,6 +23,12 @@ export interface ConferenceWalkerConfig {
    * Minimum confidence threshold for remote Overture places (0.0 to 1.0).
    */
   overtureMinConfidence: number;
+
+  /**
+   * Whether to exclude places only sourced from Overture Maps by default.
+   * Can be overridden by the user via the Settings panel or URL query parameter.
+   */
+  excludeOvertureOnlyByDefault: boolean;
 }
 
 /**
@@ -32,7 +38,8 @@ export interface ConferenceWalkerConfig {
  */
 export const APP_CONFIG: ConferenceWalkerConfig = {
   // Config option: set which categories show up by default
-  defaultCategories: ALL_CATEGORIES,
+  defaultCategories: DEFAULT_CATEGORIES,
   filtersExpandedByDefault: true,
   overtureMinConfidence: 0.98,
+  excludeOvertureOnlyByDefault: true,
 };

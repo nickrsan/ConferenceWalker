@@ -152,50 +152,79 @@ def is_poi_match(
     return similarity >= min_similarity
 
 
-def merge_two_pois(primary: Dict[str, Any], secondary: Dict[str, Any]) -> Dict[str, Any]:
+def merge_two_pois(poi_a: Dict[str, Any], poi_b: Dict[str, Any]) -> Dict[str, Any]:
     """
     Merge two matching POIs, combining their attributes and preserving rich metadata.
+    OpenStreetMap data strictly takes precedence over Overture data for coordinates,
+    category, name, and attributes due to OSM's superior positional accuracy and
+    verified community mapping.
     """
+    sources_a = set(poi_a.get("sources", []))
+    sources_b = set(poi_b.get("sources", []))
+
+    # Guarantee that if one POI originates from OpenStreetMap, it is treated as primary
+    if "osm" in sources_a and "osm" not in sources_b:
+        primary = poi_a
+        secondary = poi_b
+    elif "osm" in sources_b and "osm" not in sources_a:
+        primary = poi_b
+        secondary = poi_a
+    else:
+        primary = poi_a
+        secondary = poi_b
+
     merged = dict(primary)
 
-    # Name: pick the longer or more complete name
+    # Name: OpenStreetMap name takes precedence unless it was empty or a generic category placeholder
     name_prim = str(primary.get("name", "")).strip()
     name_sec = str(secondary.get("name", "")).strip()
-    if len(name_sec) > len(name_prim):
+    if not name_prim and name_sec:
         merged["name"] = name_sec
     else:
         merged["name"] = name_prim
 
-    # Coordinates: average them or keep primary
-    coords_prim = primary.get("coordinates", [0.0, 0.0])
-    coords_sec = secondary.get("coordinates", [0.0, 0.0])
-    avg_lon = (coords_prim[0] + coords_sec[0]) / 2.0
-    avg_lat = (coords_prim[1] + coords_sec[1]) / 2.0
-    merged["coordinates"] = [avg_lon, avg_lat]
+    # Coordinates: When OpenStreetMap is present, OSM coordinates strictly take precedence
+    # to avoid positional degradation from noisy Overture coordinates.
+    coords_prim = primary.get("coordinates")
+    coords_sec = secondary.get("coordinates")
+    if "osm" in primary.get("sources", []):
+        merged["coordinates"] = coords_prim
+    elif coords_prim and coords_sec:
+        avg_lon = (coords_prim[0] + coords_sec[0]) / 2.0
+        avg_lat = (coords_prim[1] + coords_sec[1]) / 2.0
+        merged["coordinates"] = [avg_lon, avg_lat]
+    elif coords_prim:
+        merged["coordinates"] = coords_prim
+    else:
+        merged["coordinates"] = coords_sec
 
-    # Walk time: minimum of the two walk times
-    walk_a = primary.get("walk_time_minutes")
-    walk_b = secondary.get("walk_time_minutes")
-    if walk_a is not None and walk_b is not None:
-        merged["walk_time_minutes"] = min(walk_a, walk_b)
-    elif walk_a is not None:
-        merged["walk_time_minutes"] = walk_a
-    elif walk_b is not None:
-        merged["walk_time_minutes"] = walk_b
+    # Walk time: OSM walk time takes precedence if primary is OSM, else minimum
+    walk_prim = primary.get("walk_time_minutes")
+    walk_sec = secondary.get("walk_time_minutes")
+    if "osm" in primary.get("sources", []):
+        merged["walk_time_minutes"] = walk_prim if walk_prim is not None else walk_sec
+    elif walk_prim is not None and walk_sec is not None:
+        merged["walk_time_minutes"] = min(walk_prim, walk_sec)
+    elif walk_prim is not None:
+        merged["walk_time_minutes"] = walk_prim
+    elif walk_sec is not None:
+        merged["walk_time_minutes"] = walk_sec
 
-    # Address
+    # Category: OpenStreetMap category takes precedence (already set from primary)
+
+    # Address: OSM address takes precedence; fall back to secondary if missing
     if not merged.get("address") and secondary.get("address"):
         merged["address"] = secondary["address"]
 
-    # Phone
+    # Phone: OSM phone takes precedence; fall back to secondary if missing
     if not merged.get("phone") and secondary.get("phone"):
         merged["phone"] = secondary["phone"]
 
-    # Website
+    # Website: OSM website takes precedence; fall back to secondary if missing
     if not merged.get("website") and secondary.get("website"):
         merged["website"] = secondary["website"]
 
-    # Opening hours (OSM usually provides structured syntax)
+    # Opening hours: OSM opening hours take precedence; fall back to secondary if missing
     if not merged.get("opening_hours") and secondary.get("opening_hours"):
         merged["opening_hours"] = secondary["opening_hours"]
 
@@ -207,19 +236,19 @@ def merge_two_pois(primary: Dict[str, Any], secondary: Dict[str, Any]) -> Dict[s
     merged["cuisines"] = sorted(list(cuisines_set))
 
     # Sources: combine sources
-    sources_set: Set[str] = set(primary.get("sources", []))
+    combined_sources: Set[str] = set(primary.get("sources", []))
     for s in secondary.get("sources", []):
         if s:
-            sources_set.add(s)
-    merged["sources"] = sorted(list(sources_set))
+            combined_sources.add(s)
+    merged["sources"] = sorted(list(combined_sources))
 
-    # Identifiers
+    # Identifiers: preserve both OSM and Overture IDs
     if not merged.get("osm_id") and secondary.get("osm_id"):
         merged["osm_id"] = secondary["osm_id"]
     if not merged.get("overture_id") and secondary.get("overture_id"):
         merged["overture_id"] = secondary["overture_id"]
 
-    # Online reservation and ordering URLs
+    # Online reservation and ordering URLs: OSM takes precedence, fallback to secondary
     if not merged.get("reservation_url") and secondary.get("reservation_url"):
         merged["reservation_url"] = secondary["reservation_url"]
     if not merged.get("order_url") and secondary.get("order_url"):

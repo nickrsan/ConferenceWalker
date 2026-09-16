@@ -26,7 +26,27 @@ To maximize clarity without cluttering your screen, ConferenceWalker displays th
 1. **Curate Your Choices**: Set your preferred categories, walking distance limits, or cuisine types in the full-length filter panel.
 2. **View Results**: Click the prominent **View Results** button at the bottom of the filter panel (or tap **Close Filters**) to collapse the filter view and display the results.
 3. **Closer Items First**: All places in the listing are automatically sorted by approximate walking distance from the conference center, with closer venues appearing first along with precise metric distance badges (e.g. `🚶 5 min (210 m)`).
-4. **Reopen Filters Anytime**: Click the **Filters (⚙️)** button in the sidebar header whenever you want to adjust your preferences.
+4. **Reopen Filters Anytime**: Click the **Filters (🎛️)** button in the sidebar header whenever you want to adjust your category, walk time, or cuisine preferences.
+
+---
+
+## Settings Panel & Data Sources
+
+ConferenceWalker includes a dedicated **Settings Panel** accessed via the **Settings (⚙️)** button in the sidebar header. The settings panel allows you to customize data sources and enable technical inspection tools:
+
+1. **Accessing Settings**:
+   - Click the **⚙️ Settings** button in the top right of the sidebar header.
+   - The settings panel smoothly opens in place of the results listing so you can configure preferences without visual distractions.
+   - Click **Done** or the **✕** close button (or tap **Settings** again) when finished to return immediately to your venue results.
+
+2. **Data Sources — Disable Overture-Only Data**:
+   - **What it does**: Allows you to exclude places that are only sourced from Overture Maps.
+   - **Why use it**: Remote Overture data can sometimes be noisy or feature lower positional accuracy compared to community-verified OpenStreetMap nodes. Enabling this toggle cleans up the map by showing only venues that have verified OpenStreetMap data (both OSM-only venues and venues merged across both sources).
+   - **Persistence**: Your preference is saved in your browser's local storage and remembered across sessions. You can also bookmark or launch with `?exclude_overture=true` in the URL.
+
+3. **Developer & Inspection — Show OSM & GERS IDs**:
+   - **What it does**: Displays the raw OpenStreetMap node/way ID (e.g. `OSM: 90498377`) and Overture Global Entity Reference System ID (e.g. `GERS: 08f2...`) on venue cards and in the detail sheet.
+   - **Why use it**: Ideal for conference organizers, cartographers, and local contributors verifying venue data or contributing fixes back to OpenStreetMap.
 
 ---
 
@@ -79,7 +99,7 @@ ConferenceWalker parses OpenStreetMap opening hours against your current local d
 
 ### 4. Restaurant Cuisine Filter
 Looking for Mexican, Italian, Thai, or Burgers?
-- Click the **Filters (⚙️)** button in the sidebar to open the cuisine selector.
+- Click the **Filters (🎛️)** button in the sidebar to open the cuisine selector.
 - Use the search bar to find specific cuisines (e.g. *pizza*, *tacos*, *sushi*, *vegan*).
 - Select one or more cuisines. Active cuisines appear as tags at the top with a quick **Clear** button.
 
@@ -134,6 +154,6 @@ ConferenceWalker keeps track of your favorite places throughout the conference:
 ## Developer & Organizer Debug Mode
 
 For conference organizers, cartographers, and developers debugging spatial data:
-- **UI Toggle**: In the Filters panel, check **🛠️ Show OSM & GERS IDs** to display OpenStreetMap node/way IDs and Overture GERS entity IDs directly on venue cards and in the detail sheet.
+- **UI Toggle**: In the Settings panel (⚙️), check **🛠️ Show OSM & GERS IDs** to display OpenStreetMap node/way IDs and Overture GERS entity IDs directly on venue cards and in the detail sheet.
 - **Console Shortcut**: Open your browser developer console (F12) and run `toggleDebug()` or `setDebug(true)` to toggle ID display on the fly.
 - **URL Parameter**: Append `?debug=true` to the URL to launch directly into debug mode.

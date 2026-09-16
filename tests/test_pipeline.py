@@ -263,6 +263,73 @@ class TestDeduplication:
         assert set(merged["sources"]) == {"osm", "overture"}
         assert merged["osm_id"] == "node_101"
         assert merged["overture_id"] == "overture_999"
+        # OpenStreetMap coordinates take precedence over noisy Overture coordinates
+        assert merged["coordinates"] == [-121.490, 38.579]
+
+    def test_osm_takes_precedence_over_overture_when_merging(self):
+        """
+        Verify that OpenStreetMap data strictly takes precedence over Overture data
+        for coordinates, name, category, address, phone, website, and opening hours.
+        """
+        osm_poi = {
+            "id": "osm_90498377",
+            "name": "Midtown Eatery",
+            "category": "restaurant",
+            "coordinates": [-121.4851234, 38.5756789],
+            "walk_time_minutes": 5,
+            "address": "1200 K St",
+            "phone": "916-111-2222",
+            "website": "https://midtown-eatery.com",
+            "opening_hours": "Mo-Fr 08:00-22:00",
+            "cuisines": ["american"],
+            "sources": ["osm"],
+            "osm_id": "90498377",
+            "overture_id": None,
+        }
+
+        overture_poi = {
+            "id": "overture_08f2e9",
+            "name": "Midtown Eatery - Sacramento Branch",
+            "category": "coffee_tea",  # Conflicting category
+            "coordinates": [-121.4852500, 38.5757500],  # Noisy position ~15m away
+            "walk_time_minutes": 10,
+            "address": "1200 K Street Suite 100",
+            "phone": "916-999-8888",
+            "website": "https://overture-outdated-link.com",
+            "opening_hours": "Mo-Su 09:00-21:00",
+            "cuisines": ["diner"],
+            "sources": ["overture"],
+            "osm_id": None,
+            "overture_id": "08f2e9",
+        }
+
+        # Case 1: OSM passed first
+        merged_1 = merge_two_pois(osm_poi, overture_poi)
+        assert merged_1["coordinates"] == [-121.4851234, 38.5756789], "OSM coordinates must take precedence"
+        assert merged_1["name"] == "Midtown Eatery", "OSM name must take precedence"
+        assert merged_1["category"] == "restaurant", "OSM category must take precedence"
+        assert merged_1["address"] == "1200 K St", "OSM address must take precedence"
+        assert merged_1["phone"] == "916-111-2222", "OSM phone must take precedence"
+        assert merged_1["website"] == "https://midtown-eatery.com", "OSM website must take precedence"
+        assert merged_1["opening_hours"] == "Mo-Fr 08:00-22:00", "OSM opening hours must take precedence"
+        assert merged_1["walk_time_minutes"] == 5, "OSM walk time must take precedence"
+        assert set(merged_1["sources"]) == {"osm", "overture"}
+        assert merged_1["osm_id"] == "90498377"
+        assert merged_1["overture_id"] == "08f2e9"
+
+        # Case 2: Overture passed first (order independence)
+        merged_2 = merge_two_pois(overture_poi, osm_poi)
+        assert merged_2["coordinates"] == [-121.4851234, 38.5756789], "OSM coordinates must take precedence regardless of argument order"
+        assert merged_2["name"] == "Midtown Eatery"
+        assert merged_2["category"] == "restaurant"
+        assert merged_2["address"] == "1200 K St"
+        assert merged_2["phone"] == "916-111-2222"
+        assert merged_2["website"] == "https://midtown-eatery.com"
+        assert merged_2["opening_hours"] == "Mo-Fr 08:00-22:00"
+        assert merged_2["walk_time_minutes"] == 5
+        assert set(merged_2["sources"]) == {"osm", "overture"}
+        assert merged_2["osm_id"] == "90498377"
+        assert merged_2["overture_id"] == "08f2e9"
 
     def test_prevent_false_merge_of_chain_branches(self):
         # Two Starbucks separated by 200m should NOT merge
@@ -396,3 +463,23 @@ class TestPipelineIntegration:
         m = merged_list[0]
         assert m["reservation_url"] == "https://opentable.com/r/midtown-tavern"
         assert m["order_url"] == "https://toasttab.com/midtown-tavern"
+
+    def test_extract_osm_genuine_node_ids_from_pbf(self):
+        """
+        Verify that extract_osm_pois returns genuine OpenStreetMap node IDs
+        (such as numeric IDs from @id) rather than sequential internal numbering ('node_0', 'node_1').
+        """
+        from pipeline.preprocess import extract_osm_pois
+        region = load_region("regions/Walksheds of Sacramento FOSS4GNA 2026.json")
+        pois = extract_osm_pois("regions/SacramentoCore.osm.pbf", region)
+
+        assert len(pois) > 0, "Should extract POIs from SacramentoCore.osm.pbf"
+
+        # Check first 50 POIs to ensure genuine numeric IDs are reported
+        for poi in pois[:50]:
+            osm_id = poi["osm_id"]
+            # Genuine OSM IDs are numeric strings (node or way IDs)
+            assert osm_id is not None
+            assert not osm_id.startswith("node_"), f"OSM ID {osm_id} must not be internal 'node_{{idx}}' numbering"
+            assert osm_id.isdigit(), f"Expected numeric OSM ID, got '{osm_id}'"
+            assert poi["id"] == f"osm_{osm_id}"

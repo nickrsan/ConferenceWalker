@@ -19,6 +19,8 @@ This document tracks all implemented features, capabilities, and data contracts 
   10. `grocery`: Supermarkets, grocery stores, bakeries, and markets
 - **Spatial Isochrone Walkshed Tagging**: Point-in-polygon containment evaluation assigning POIs to their minimal walk time threshold (e.g., 5 min, 10 min, 15 min, or outside).
 - **Spatial & Fuzzy Name Deduplication**: Proximity clustering within 25 meters combined with normalized name fuzzy matching (>= 80% similarity threshold) merging attributes across OSM and Overture without losing data.
+- **OpenStreetMap Data Precedence Merging**: Strict precedence of OpenStreetMap information over Overture data during duplicate merging across coordinates (preventing positional degradation from noisy Overture coordinates), categories, venue names, formatted addresses, phone numbers, websites, and opening hours, while retaining Overture enrichment for missing fields and populating `overture_id`.
+- **Genuine OpenStreetMap ID Extraction**: Extraction and reporting of canonical OpenStreetMap node/way IDs from OSM `@id` metadata (e.g. `90498377` in `osm_id` and `osm_90498377` in `id`) using `osmium export -a type,id`, replacing internal sequential numbering (`node_{idx}`).
 - **Configurable Overture Confidence Threshold**: `--overture-min-confidence` CLI parameter (default: 0.6) filtering noisy or unverified remote Overture records.
 - **Overture GERS Blocklist Support**: `--blocklist-gers` CLI option supporting inline IDs or file-based blocklists to exclude specific Overture GERS identifiers during preprocessing.
 - **Rich Attribute Preservation**: Normalized output preserving names, addresses, phone numbers, websites, opening hours, cuisines, source references, and geographic coordinates in standardized GeoJSON.
@@ -52,8 +54,10 @@ This document tracks all implemented features, capabilities, and data contracts 
 - **Online Reservations & Food Ordering**: Automated extraction and UI display of online reservation links (`📅 Reservations`, e.g. OpenTable, Resy, Tock) and online food ordering links (`🛍️ Order Online`, e.g. Toast, DoorDash, ChowNow, Slice) across map tooltips, venue detail sheets, and sidebar listings.
 - **Strict Layout Containment & Isolated Scrolling**: Strict CSS and JS layout containment (`contain: strict;`, `min-height: 0;`, `overscroll-behavior: contain;`) and container-isolated scrolling that prevents browser scroll-chaining, infinite body height reflows, and map canvas resize loops.
 - **Open Now & Include Unknown Toggles**: Attendee options to restrict results to currently open venues, with an option to include venues with unlisted hours.
+- **Overture-Only Data Exclusion Filter**: Option to filter out venues only sourced from Overture Maps (`sources: ['overture']`) to reduce noise and eliminate lower positional accuracy records, preserving all OpenStreetMap and merged places.
 
-### 5. Detail View, Favorites, Directions & Documentation
+### 5. Detail View, Favorites, Settings, Directions & Documentation
+- **Dedicated Settings Panel**: Clean configuration drawer accessible via `⚙️ Settings` in the sidebar header housing the Overture-only exclusion toggle and developer inspection tools with seamless view coordination.
 - **Rich POI Detail Sheet**: Modal drawer displaying formatted address, operating hours, clickable external website links, and tappable `tel:` phone links.
 - **Persistent Favorites System**: Client-side starring mechanism stored in `window.localStorage` with defensive sandboxing support, persistent map glow highlights, and a dedicated Saved tab.
 - **Walking Directions Launcher**: Dynamic URL generator for **GraphHopper Maps** walking routing (`https://graphhopper.com/maps/?point=...&vehicle=foot`).

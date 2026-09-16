@@ -158,11 +158,12 @@ def extract_osm_pois(
         tmp_geojson_path = tmp_file.name
 
     try:
-        # Use osmium export to generate GeoJSON features
+        # Use osmium export to generate GeoJSON features with genuine OSM IDs and entity types
         cmd = [
             "osmium", "export",
             osm_pbf_path,
             "--geometry-types=point,polygon",
+            "-a", "type,id",
             "-f", "geojson",
             "--overwrite",
             "-o", tmp_geojson_path
@@ -245,7 +246,19 @@ def extract_osm_pois(
             res_url = extract_reservation_url(props)
             ord_url = extract_order_url(props)
 
-            osm_id = str(props.get("@id") or props.get("id") or f"node_{idx}")
+            # OpenStreetMap ID: Extract genuine OSM ID (node ID or way ID) rather than internal numbering
+            raw_osm_id = props.get("@id") or props.get("id") or feat.get("id")
+            if raw_osm_id is not None:
+                raw_str = str(raw_osm_id).strip()
+                # Normalize any prefix osmium might emit (e.g. 'node/12345', 'way/12345', or 'n12345')
+                if raw_str.startswith(("node/", "way/", "relation/")):
+                    osm_id = raw_str.split("/", 1)[1]
+                elif len(raw_str) > 1 and raw_str[0] in ("n", "w", "r") and raw_str[1:].isdigit():
+                    osm_id = raw_str[1:]
+                else:
+                    osm_id = raw_str
+            else:
+                osm_id = str(idx)
             poi = {
                 "id": f"osm_{osm_id}",
                 "name": name,

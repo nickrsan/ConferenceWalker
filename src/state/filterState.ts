@@ -10,6 +10,9 @@ import {
   FilterState,
   ALL_CATEGORIES,
 } from '../types/poi';
+
+import { APP_CONFIG} from "../config";
+
 import { evaluateOpeningHours } from '../utils/openingHours';
 
 export type FilterChangeListener = (state: FilterState, matchingIds: Set<string>) => void;
@@ -18,9 +21,13 @@ export class FilterStore {
   private state: FilterState;
   private defaultCategories: POICategory[];
   private listeners: Set<FilterChangeListener> = new Set();
+  private readonly STORAGE_KEY_EXCLUDE_OVERTURE = 'conference_walker_exclude_overture';
 
   constructor(initialState?: Partial<FilterState>, defaultCategories?: POICategory[]) {
     this.defaultCategories = defaultCategories && defaultCategories.length > 0 ? defaultCategories : ALL_CATEGORIES;
+    const initialExcludeOverture =
+      initialState?.excludeOvertureOnly ?? this.detectInitialExcludeOverture();
+
     this.state = {
       categories: new Set(initialState?.categories || this.defaultCategories),
       allowedWalkTimes: new Set(initialState?.allowedWalkTimes || [5, 10, 15, 'outside']),
@@ -29,7 +36,25 @@ export class FilterStore {
       selectedCuisines: new Set(initialState?.selectedCuisines || []),
       searchQuery: initialState?.searchQuery || '',
       favoritesOnly: initialState?.favoritesOnly ?? false,
+      excludeOvertureOnly: initialExcludeOverture,
     };
+  }
+
+  private detectInitialExcludeOverture(): boolean {
+    if (typeof window === 'undefined') return false;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('exclude_overture') === 'true' || params.get('no_overture') === 'true') {
+        return true;
+      }
+      let stored_val = window.localStorage.getItem(this.STORAGE_KEY_EXCLUDE_OVERTURE) === 'true';
+      if(!stored_val) {
+        return APP_CONFIG['excludeOvertureOnlyByDefault'];
+      }
+      return stored_val;
+    } catch {
+      return false;
+    }
   }
 
   public getDefaultCategories(): POICategory[] {
@@ -57,6 +82,7 @@ export class FilterStore {
       selectedCuisines: new Set(this.state.selectedCuisines),
       searchQuery: this.state.searchQuery,
       favoritesOnly: this.state.favoritesOnly,
+      excludeOvertureOnly: this.state.excludeOvertureOnly,
     };
   }
 
@@ -82,6 +108,22 @@ export class FilterStore {
     now: Date = new Date()
   ): boolean {
     const props = poi.properties;
+
+    // 0. Exclude data only sourced from Overture Maps
+    if (this.state.excludeOvertureOnly) {
+      const rawSources = props.sources || [];
+      const sources: string[] = Array.isArray(rawSources)
+        ? rawSources
+        : typeof rawSources === 'string'
+        ? (rawSources as string).split(',').map((s) => s.trim())
+        : [];
+      const hasOsm = sources.includes('osm');
+      const hasOverture = sources.includes('overture');
+      // Exclude if venue is only in Overture (no OpenStreetMap source)
+      if (hasOverture && !hasOsm) {
+        return false;
+      }
+    }
 
     // 1. Favorites only filter
     if (this.state.favoritesOnly && !favoriteIds.has(props.id)) {
@@ -232,6 +274,27 @@ export class FilterStore {
   public setFavoritesOnly(enabled: boolean, allFeatures: POIFeature[], favoriteIds: Set<string>): void {
     this.state.favoritesOnly = enabled;
     this.notify(allFeatures, favoriteIds);
+  }
+
+  public setExcludeOvertureOnly(
+    enabled: boolean,
+    allFeatures: POIFeature[],
+    favoriteIds: Set<string>
+  ): void {
+    if (this.state.excludeOvertureOnly === enabled) return;
+    this.state.excludeOvertureOnly = enabled;
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(this.STORAGE_KEY_EXCLUDE_OVERTURE, String(enabled));
+      }
+    } catch {
+      // Defensive fallback if localStorage is sandboxed
+    }
+    this.notify(allFeatures, favoriteIds);
+  }
+
+  public isExcludeOvertureOnly(): boolean {
+    return this.state.excludeOvertureOnly;
   }
 
   public resetFilters(allFeatures: POIFeature[], favoriteIds: Set<string>): void {

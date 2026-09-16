@@ -86,6 +86,9 @@ describe('SidebarComponent', () => {
 
   beforeEach(() => {
     container = document.createElement('div');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.clear();
+    }
     filterStore = new FilterStore();
     favoritesStore = new FavoritesStore();
     debugStore = new DebugStore();
@@ -231,5 +234,137 @@ describe('SidebarComponent', () => {
     expect(badges[0].textContent).toContain('Reserve');
     expect(badges[1].textContent).toContain('🛍️');
     expect(badges[1].textContent).toContain('Order');
+  });
+
+  it('opens and closes the settings panel, coordinating with filters and results', () => {
+    const sidebar = new SidebarComponent(
+      container,
+      filterStore,
+      favoritesStore,
+      { onSelectPOI: () => {} },
+      debugStore,
+      false // start collapsed (viewing results)
+    );
+
+    sidebar.setData(mockFeatures, mockRegion, []);
+
+    const settingsBtn = container.querySelector('#btn-toggle-settings') as HTMLButtonElement;
+    expect(settingsBtn).not.toBeNull();
+    const settingsPanel = container.querySelector('#settings-panel') as HTMLElement;
+    expect(settingsPanel).not.toBeNull();
+    expect(sidebar.isSettingsExpanded()).toBe(false);
+    expect(settingsPanel.classList.contains('closed')).toBe(true);
+
+    // Click settings button to open settings panel
+    settingsBtn.click();
+    expect(sidebar.isSettingsExpanded()).toBe(true);
+    expect(sidebar.isFiltersExpanded()).toBe(false);
+
+    const openSettingsPanel = container.querySelector('#settings-panel') as HTMLElement;
+    expect(openSettingsPanel.classList.contains('open')).toBe(true);
+    expect(openSettingsPanel.style.display).not.toBe('none');
+
+    // Results container is hidden while settings is open
+    const poiListContainer = container.querySelector('.poi-list-container') as HTMLElement;
+    expect(poiListContainer.style.display).toBe('none');
+
+    // Click Done button in settings panel to close it
+    const doneBtn = container.querySelector('#btn-collapse-settings') as HTMLButtonElement;
+    expect(doneBtn).not.toBeNull();
+    doneBtn.click();
+    expect(sidebar.isSettingsExpanded()).toBe(false);
+
+    const closedSettingsPanel = container.querySelector('#settings-panel') as HTMLElement;
+    expect(closedSettingsPanel.classList.contains('closed')).toBe(true);
+    const restoredPoiList = container.querySelector('.poi-list-container') as HTMLElement;
+    expect(restoredPoiList.style.display).not.toBe('none');
+
+    // Opening filters while settings is open closes settings
+    settingsBtn.click();
+    expect(sidebar.isSettingsExpanded()).toBe(true);
+    const filtersBtn = container.querySelector('#btn-toggle-filters') as HTMLButtonElement;
+    filtersBtn.click();
+    expect(sidebar.isFiltersExpanded()).toBe(true);
+    expect(sidebar.isSettingsExpanded()).toBe(false);
+  });
+
+  it('toggles excluding Overture-only data via the settings panel', () => {
+    const sidebar = new SidebarComponent(
+      container,
+      filterStore,
+      favoritesStore,
+      { onSelectPOI: () => {} },
+      debugStore,
+      false
+    );
+
+    sidebar.setData(mockFeatures, mockRegion, []);
+
+    // Initially all 3 POIs visible
+    expect(container.querySelectorAll('.poi-card').length).toBe(3);
+
+    // Open settings panel
+    const settingsBtn = container.querySelector('#btn-toggle-settings') as HTMLButtonElement;
+    settingsBtn.click();
+
+    const overtureChk = container.querySelector('#chk-disable-overture') as HTMLInputElement;
+    expect(overtureChk).not.toBeNull();
+    expect(overtureChk.checked).toBe(false);
+
+    // Check the toggle to disable Overture-only data
+    overtureChk.checked = true;
+    overtureChk.dispatchEvent(new Event('change'));
+
+    expect(filterStore.isExcludeOvertureOnly()).toBe(true);
+
+    // Close settings to inspect cards
+    const doneBtn = container.querySelector('#btn-collapse-settings') as HTMLButtonElement;
+    doneBtn.click();
+
+    // Now only 2 POIs visible: 'close_venue' (Overture only) is excluded,
+    // while 'far_venue' (OSM) and 'mid_venue' (OSM + Overture) remain.
+    const cards = container.querySelectorAll('.poi-card');
+    expect(cards.length).toBe(2);
+    const cardIds = Array.from(cards).map((c) => c.getAttribute('data-id'));
+    expect(cardIds).not.toContain('close_venue');
+    expect(cardIds).toContain('far_venue');
+    expect(cardIds).toContain('mid_venue');
+  });
+
+  it('toggles OSM and GERS IDs via the debug checkbox inside the settings panel', () => {
+    const sidebar = new SidebarComponent(
+      container,
+      filterStore,
+      favoritesStore,
+      { onSelectPOI: () => {} },
+      debugStore,
+      false
+    );
+
+    sidebar.setData(mockFeatures, mockRegion, []);
+
+    // Initially debug mode is off
+    expect(debugStore.isDebugMode()).toBe(false);
+    expect(container.querySelectorAll('.poi-card-debug-ids').length).toBe(0);
+
+    // Open settings
+    const settingsBtn = container.querySelector('#btn-toggle-settings') as HTMLButtonElement;
+    settingsBtn.click();
+
+    const debugChk = container.querySelector('#chk-debug-mode') as HTMLInputElement;
+    expect(debugChk).not.toBeNull();
+    expect(debugChk.checked).toBe(false);
+
+    // Enable debug mode in settings
+    debugChk.checked = true;
+    debugChk.dispatchEvent(new Event('change'));
+
+    expect(debugStore.isDebugMode()).toBe(true);
+
+    // Close settings
+    const doneBtn = container.querySelector('#btn-collapse-settings') as HTMLButtonElement;
+    doneBtn.click();
+
+    expect(container.querySelectorAll('.poi-card-debug-ids').length).toBe(3);
   });
 });

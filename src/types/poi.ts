@@ -27,6 +27,18 @@ export const ALL_CATEGORIES: POICategory[] = [
   'grocery',
 ];
 
+export const DEFAULT_CATEGORIES: POICategory[] = [
+  'convenience_pharmacy',
+  'restaurant',
+  'transit',
+  'coffee_tea',
+  'bar',
+  'hotel',
+  'attraction_art',
+  'park_outdoors',
+  'grocery',
+];
+
 export const CATEGORY_META: Record<POICategory, { label: string; icon: string; color: string }> = {
   convenience_pharmacy: { label: 'Convenience / Pharmacy', icon: '💊', color: '#e7298a' },
   restaurant: { label: 'Restaurants', icon: '🍽️', color: '#e41a1c' },
@@ -96,4 +108,5 @@ export interface FilterState {
   selectedCuisines: Set<string>;
   searchQuery: string;
   favoritesOnly: boolean;
+  excludeOvertureOnly: boolean;
 }
