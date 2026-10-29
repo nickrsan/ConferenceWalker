@@ -292,4 +292,35 @@ describe('Settings Panel Component and Preferences', () => {
     expect(isochroneVal).toBe(false);
     expect(window.localStorage.getItem('cw_show_isochrones')).toBe('false');
   });
+
+  it('allows configuring and changing icon size in Settings panel', () => {
+    let chosenSize: string | null = null;
+    const sidebar = new SidebarComponent(
+      container,
+      filterStore,
+      favoritesStore,
+      {
+        onSelectPOI: () => {},
+        onIconSizeChange: (size) => {
+          chosenSize = size;
+        },
+      },
+      debugStore,
+      false
+    );
+    sidebar.setData(samplePOIs, mockRegion, []);
+
+    sidebar.setSettingsExpanded(true);
+    const iconSelect = container.querySelector('#select-icon-size') as HTMLSelectElement;
+    expect(iconSelect).not.toBeNull();
+    expect(iconSelect.value).toBe('extra-large');
+
+    iconSelect.value = 'large';
+    iconSelect.dispatchEvent(new Event('change'));
+    expect(chosenSize).toBe('large');
+    expect(window.localStorage.getItem('cw_icon_size')).toBe('large');
+
+    sidebar.setIconSize('small');
+    expect(sidebar.getIconSize()).toBe('small');
+  });
 });

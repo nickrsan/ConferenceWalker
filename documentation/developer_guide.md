@@ -210,6 +210,11 @@ export interface FilterState {
 
 ### 4.5 Map Engine & Vector Layers (`src/map/mapManager.ts`, `src/map/mapStyles.ts`)
 - **Basemap Engine**: Uses OpenFreeMap Positron (`https://tiles.openfreemap.org/styles/positron`), an open-source, API-key-free vector tile service.
+- **Walking Isochrone Rendering Pipeline**:
+  - **Fills (`isochrones-fill`)**: Layered polygon fills with tiered high-contrast opacities (28% for 5 min, 22% for 10 min, 18% for 15 min) configured via MapLibre expressions for maximum visibility across vector themes.
+  - **Outlines (`isochrones-line`)**: Crisp 2.5px boundary strokes with 85% opacity clearly delineating walking time boundaries.
+  - **Labels (`isochrones-labels`)**: Symbol layer explicitly referencing `'Noto Sans Regular'` to prevent glyph loading failures on OpenFreeMap vector styles.
+  - **Layer Stacking**: Isochrone layers are automatically inserted underneath POI marker pins (`pois-favorites-halo`, `pois-circle`, `pois-symbol`, `pois-selection-ring`) and hover tooltips to ensure venue markers and text remain unhampered.
 - **Vector Icon Badges & Dynamic Sizing**: Pre-rasterizes crisp category SVG badges at 2x pixel ratio for high-DPI displays. Supports dynamic icon scaling via `setIconSize(size: POIIconSize | number)` with predefined presets (`small`: 0.75x, `medium`: 1.0x, `large`: 1.3x, `extra-large`: 1.65x) scaling vector symbol badges, circle backings, favorites halos, and selection rings in real time.
 - **POI Name Labels**: Renders on-map venue names directly beneath category symbols with text halos and automatic collision-avoidance layout.
 - **Bidirectional Selection**: Synchronizes map marker selections with sidebar card highlights and viewport camera centering.

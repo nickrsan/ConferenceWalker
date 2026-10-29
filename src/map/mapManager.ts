@@ -127,46 +127,76 @@ export class MapManager {
         data: polygonFeatures as any,
       });
 
-      // Polygon fill layer
-      this.map.addLayer({
-        id: 'isochrones-fill',
-        type: 'fill',
-        source: 'isochrones-source',
-        paint: {
-          'fill-color': ['coalesce', ['get', 'fillColor'], ['get', 'color'], '#2b83ba'],
-          'fill-opacity': 0.16,
-        },
-      });
+      // Insert beneath POI layers if POI layers exist, otherwise add to map top
+      const beforeLayerId = this.map.getLayer('pois-favorites-halo')
+        ? 'pois-favorites-halo'
+        : (this.map.getLayer('pois-circle') ? 'pois-circle' : undefined);
 
-      // Polygon outline layer
-      this.map.addLayer({
-        id: 'isochrones-line',
-        type: 'line',
-        source: 'isochrones-source',
-        paint: {
-          'line-color': ['coalesce', ['get', 'color'], '#2b83ba'],
-          'line-width': 2,
-          'line-opacity': 0.75,
+      // Polygon fill layer with tiered high-contrast opacities (28% for 5 min, 22% for 10 min, 18% for 15 min)
+      this.map.addLayer(
+        {
+          id: 'isochrones-fill',
+          type: 'fill',
+          source: 'isochrones-source',
+          layout: {
+            visibility: this.isochronesVisible ? 'visible' : 'none',
+          },
+          paint: {
+            'fill-color': ['coalesce', ['get', 'fillColor'], ['get', 'color'], '#2b83ba'],
+            'fill-opacity': [
+              'match',
+              ['get', 'value'],
+              300, 0.28,
+              600, 0.22,
+              900, 0.18,
+              ['coalesce', ['get', 'fillOpacity'], 0.24],
+            ],
+          },
         },
-      });
+        beforeLayerId
+      );
 
-      // Isochrone label layer
-      this.map.addLayer({
-        id: 'isochrones-labels',
-        type: 'symbol',
-        source: 'isochrones-source',
-        layout: {
-          'text-field': ['get', 'label'],
-          'text-size': 11,
-          'text-anchor': 'top',
-          'text-offset': [0, 0.5],
+      // Polygon outline layer with crisp perimeter strokes
+      this.map.addLayer(
+        {
+          id: 'isochrones-line',
+          type: 'line',
+          source: 'isochrones-source',
+          layout: {
+            visibility: this.isochronesVisible ? 'visible' : 'none',
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': ['coalesce', ['get', 'color'], '#2b83ba'],
+            'line-width': 2.5,
+            'line-opacity': 0.85,
+          },
         },
-        paint: {
-          'text-color': '#334155',
-          'text-halo-color': '#ffffff',
-          'text-halo-width': 1.5,
+        beforeLayerId
+      );
+
+      // Isochrone label layer with explicit Noto Sans Regular vector fontstack
+      this.map.addLayer(
+        {
+          id: 'isochrones-labels',
+          type: 'symbol',
+          source: 'isochrones-source',
+          layout: {
+            'text-field': ['get', 'label'],
+            'text-font': ['Noto Sans Regular'],
+            'text-size': 12,
+            'text-anchor': 'center',
+            'visibility': this.isochronesVisible ? 'visible' : 'none',
+          },
+          paint: {
+            'text-color': '#1e293b',
+            'text-halo-color': '#ffffff',
+            'text-halo-width': 2,
+          },
         },
-      });
+        beforeLayerId
+      );
     }
 
     // Apply visibility configuration to isochrone layers

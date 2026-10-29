@@ -11,10 +11,11 @@ When you open ConferenceWalker, the interactive map automatically centers on the
 The map displays:
 - **OpenFreeMap Positron Basemap**: A fast, vector basemap offering clean typography and high contrast for walkshed boundaries and venue pins.
 - **Conference Center Pin (📍)**: The central location of the event.
-- **Walking Isochrone Polygons**: Colored concentric boundary rings representing walking travel times from the conference venue:
-  - **Dark Blue (5 min)**: ~400 meters — ideal for quick session breaks.
-  - **Teal (10 min)**: ~800 meters — great for a relaxed lunch.
-  - **Light Green (15 min)**: ~1.2 kilometers — perfect for dinner or evening exploration.
+- **Walking Isochrone Polygons**: High-contrast, semi-transparent concentric boundary rings representing walking travel times from the conference venue:
+  - **Dark Blue (5 min)**: ~400 meters (28% fill opacity, crisp border outline) — ideal for quick session breaks.
+  - **Teal (10 min)**: ~800 meters (22% fill opacity, crisp border outline) — great for a relaxed lunch.
+  - **Light Green (15 min)**: ~1.2 kilometers (18% fill opacity, crisp border outline) — perfect for dinner or evening exploration.
+  - **Perimeter Labels**: Legible walk-time annotations layered smoothly beneath POI pins.
 - **Categorized Vector Icon Badges**: Color-coded badges featuring distinctive icons for all 10 categories (fork & knife for restaurants, mug for coffee, cocktail for bars, etc.).
 - **On-Map Venue Name Labels**: Venue names are clearly labeled on the map beneath each icon with clean halo outlines for instant recognition.
 
