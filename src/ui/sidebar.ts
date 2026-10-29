@@ -3,7 +3,7 @@
  * Houses filter controls, search, tabs (Explore vs Favorites), and POI listing.
  */
 
-import { POIFeature, RegionMetadata, CATEGORY_META, ALL_CATEGORIES, POICategory } from '../types/poi';
+import { POIFeature, RegionMetadata, CATEGORY_META, ALL_CATEGORIES, POICategory, POIIconSize } from '../types/poi';
 import { FilterStore } from '../state/filterState';
 import { FavoritesStore } from '../state/favorites';
 import { DebugStore } from '../state/debugState';
@@ -25,6 +25,7 @@ export interface SidebarEvents {
   onHoverPOI?: (poi: POIFeature | null) => void;
   onBasemapChange?: (style: BasemapStyleKey) => void;
   onIsochronesToggle?: (visible: boolean) => void;
+  onIconSizeChange?: (size: POIIconSize) => void;
   onResize?: (width: number) => void;
 }
 
@@ -43,6 +44,7 @@ export class SidebarComponent {
   private selectedPoiId: string | null = null;
   private currentBasemapStyle: BasemapStyleKey = 'positron';
   private showIsochrones = true;
+  private currentIconSize: POIIconSize = 'medium';
   private isWelcomeDismissed = false;
   private sidebarWidth: number = DEFAULT_SIDEBAR_WIDTH;
   private isResizing = false;
@@ -73,6 +75,13 @@ export class SidebarComponent {
       this.showIsochrones = savedIso === 'true';
     } else if (APP_CONFIG.showIsochronesByDefault !== undefined) {
       this.showIsochrones = APP_CONFIG.showIsochronesByDefault;
+    }
+
+    const savedIcon = typeof localStorage !== 'undefined' ? (localStorage.getItem('cw_icon_size') as POIIconSize) : null;
+    if (savedIcon && ['small', 'medium', 'large', 'extra-large'].includes(savedIcon)) {
+      this.currentIconSize = savedIcon;
+    } else if (APP_CONFIG.iconSize) {
+      this.currentIconSize = APP_CONFIG.iconSize;
     }
 
     this.isWelcomeDismissed =
@@ -146,6 +155,22 @@ export class SidebarComponent {
     return this.showIsochrones;
   }
 
+  public setIconSize(size: POIIconSize, persist = true): void {
+    this.currentIconSize = size;
+    if (persist && typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('cw_icon_size', size);
+      } catch {
+        // ignore
+      }
+    }
+    this.render();
+  }
+
+  public getIconSize(): POIIconSize {
+    return this.currentIconSize;
+  }
+
   public isWelcomeDismissedState(): boolean {
     return this.isWelcomeDismissed;
   }
@@ -205,6 +230,9 @@ export class SidebarComponent {
 
   public setActiveTab(tab: 'explore' | 'favorites'): void {
     this.activeTab = tab;
+    if (this.isSettingsOpen) {
+      this.isSettingsOpen = false;
+    }
     this.filterStore.setFavoritesOnly(tab === 'favorites', this.allFeatures, this.favoritesStore.getFavorites());
     this.render();
   }
@@ -383,30 +411,32 @@ export class SidebarComponent {
       </div>
 
       <div class="filters-collapsible ${this.isFiltersOpen ? 'open' : 'closed'}">
-        <div class="filter-quick-toggles">
-          <label class="toggle-checkbox-label">
-            <input type="checkbox" id="chk-nearest-only" ${state.nearestOnly ? 'checked' : ''} />
-            <span class="label-text">📍 Nearest Only</span>
-          </label>
-          <label class="toggle-checkbox-label">
-            <input type="checkbox" id="chk-open-now" ${state.openNowOnly ? 'checked' : ''} />
-            <span class="label-text">Open Now</span>
-          </label>
-          <label class="toggle-checkbox-label ${!state.openNowOnly ? 'disabled' : ''}">
-            <input
-              type="checkbox"
-              id="chk-include-unknown"
-              ${state.includeUnknownHours ? 'checked' : ''}
-              ${!state.openNowOnly ? 'disabled' : ''}
-            />
-            <span class="label-text">Include Unknown Hours</span>
-          </label>
-          <button type="button" class="btn-text-action" id="btn-reset-filters">Reset Filters</button>
-        </div>
+        <div class="filters-scroll-body" id="filters-scroll-body">
+          <div class="filter-quick-toggles">
+            <label class="toggle-checkbox-label">
+              <input type="checkbox" id="chk-nearest-only" ${state.nearestOnly ? 'checked' : ''} />
+              <span class="label-text">📍 Nearest Only</span>
+            </label>
+            <label class="toggle-checkbox-label">
+              <input type="checkbox" id="chk-open-now" ${state.openNowOnly ? 'checked' : ''} />
+              <span class="label-text">Open Now</span>
+            </label>
+            <label class="toggle-checkbox-label ${!state.openNowOnly ? 'disabled' : ''}">
+              <input
+                type="checkbox"
+                id="chk-include-unknown"
+                ${state.includeUnknownHours ? 'checked' : ''}
+                ${!state.openNowOnly ? 'disabled' : ''}
+              />
+              <span class="label-text">Include Unknown Hours</span>
+            </label>
+            <button type="button" class="btn-text-action" id="btn-reset-filters">Reset Filters</button>
+          </div>
 
-        <div id="filter-categories-container"></div>
-        <div id="filter-walk-container"></div>
-        <div id="filter-cuisines-container"></div>
+          <div id="filter-categories-container"></div>
+          <div id="filter-walk-container"></div>
+          <div id="filter-cuisines-container"></div>
+        </div>
 
         <div class="filter-footer-actions">
           <button type="button" class="btn-collapse-filters" id="btn-collapse-filters">
@@ -483,7 +513,21 @@ export class SidebarComponent {
           </div>
 
           <div class="settings-section">
-            <h3 class="settings-section-title">Map Display</h3>
+            <h3 class="settings-section-title">Map Display & Icons</h3>
+            <div class="settings-option" style="margin-bottom: 12px;">
+              <label for="select-icon-size" class="label-text" style="font-weight: 600; margin-bottom: 6px; display: block;">
+                Map Icon Size
+              </label>
+              <select id="select-icon-size" class="settings-select" aria-label="Select Map Icon Size" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; background: #fff;">
+                <option value="small" ${this.currentIconSize === 'small' ? 'selected' : ''}>Small (Compact)</option>
+                <option value="medium" ${this.currentIconSize === 'medium' ? 'selected' : ''}>Medium (Default)</option>
+                <option value="large" ${this.currentIconSize === 'large' ? 'selected' : ''}>Large</option>
+                <option value="extra-large" ${this.currentIconSize === 'extra-large' ? 'selected' : ''}>Extra Large</option>
+              </select>
+              <p class="settings-option-desc">
+                Adjust the scaling of POI icons and category badges on the map.
+              </p>
+            </div>
             <div class="settings-option">
               <label class="toggle-checkbox-label settings-checkbox-label">
                 <input
@@ -695,6 +739,20 @@ export class SidebarComponent {
       this.currentBasemapStyle = val;
       if (this.events.onBasemapChange) {
         this.events.onBasemapChange(val);
+      }
+    });
+
+    // Icon size selector in Settings panel
+    this.container.querySelector('#select-icon-size')?.addEventListener('change', (e) => {
+      const val = (e.target as HTMLSelectElement).value as POIIconSize;
+      this.currentIconSize = val;
+      try {
+        localStorage.setItem('cw_icon_size', val);
+      } catch {
+        // ignore
+      }
+      if (this.events.onIconSizeChange) {
+        this.events.onIconSizeChange(val);
       }
     });
 

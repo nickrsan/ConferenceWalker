@@ -28,15 +28,16 @@ export const ALL_CATEGORIES: POICategory[] = [
 ];
 
 export const DEFAULT_CATEGORIES: POICategory[] = [
-  'convenience_pharmacy',
+  //'convenience_pharmacy',
   'restaurant',
-  'transit',
+    // 'parking',
+  //'transit',
   'coffee_tea',
-  'bar',
-  'hotel',
+  //'bar',
+  //'hotel',
   'attraction_art',
   'park_outdoors',
-  'grocery',
+  //'grocery',
 ];
 
 export const CATEGORY_META: Record<POICategory, { label: string; icon: string; color: string }> = {
@@ -99,6 +100,9 @@ export interface RegionMetadata {
 }
 
 export type OpeningStatus = 'open' | 'closed' | 'unknown';
+
+export type POIIconSize = 'small' | 'medium' | 'large' | 'extra-large';
+export type PoiIconSize = POIIconSize;
 
 export interface FilterState {
   categories: Set<POICategory>;

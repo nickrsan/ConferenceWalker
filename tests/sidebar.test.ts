@@ -590,4 +590,97 @@ describe('SidebarComponent', () => {
     expect(sidebar.getShowIsochrones()).toBe(false);
     expect(window.localStorage.getItem('cw_show_isochrones')).toBe('false');
   });
+
+  it('renders icon size selector in settings and notifies callback', () => {
+    let iconSizeState: string | null = null;
+    const sidebar = new SidebarComponent(
+      container,
+      filterStore,
+      favoritesStore,
+      {
+        onSelectPOI: () => {},
+        onIconSizeChange: (size) => {
+          iconSizeState = size;
+        },
+      },
+      debugStore,
+      false
+    );
+    sidebar.setData(mockFeatures, mockRegion, []);
+
+    sidebar.setSettingsExpanded(true);
+    const selectEl = container.querySelector('#select-icon-size') as HTMLSelectElement;
+    expect(selectEl).not.toBeNull();
+    expect(selectEl.value).toBe('extra-large');
+
+    selectEl.value = 'large';
+    selectEl.dispatchEvent(new Event('change'));
+
+    expect(iconSizeState).toBe('large');
+    expect(sidebar.getIconSize()).toBe('large');
+    expect(window.localStorage.getItem('cw_icon_size')).toBe('large');
+  });
+
+  it('closes settings panel when clicking explore or saved tabs', () => {
+    const sidebar = new SidebarComponent(
+      container,
+      filterStore,
+      favoritesStore,
+      { onSelectPOI: () => {} },
+      debugStore,
+      false
+    );
+    sidebar.setData(mockFeatures, mockRegion, []);
+
+    sidebar.setSettingsExpanded(true);
+    expect(sidebar.isSettingsExpanded()).toBe(true);
+
+    // Click saved tab
+    const savedTab = container.querySelector('#tab-favorites') as HTMLButtonElement;
+    expect(savedTab).not.toBeNull();
+    savedTab.click();
+
+    expect(sidebar.isSettingsExpanded()).toBe(false);
+    expect(sidebar.getActiveTab()).toBe('favorites');
+
+    // Open settings again and click explore tab
+    sidebar.setSettingsExpanded(true);
+    expect(sidebar.isSettingsExpanded()).toBe(true);
+
+    const exploreTab = container.querySelector('#tab-explore') as HTMLButtonElement;
+    expect(exploreTab).not.toBeNull();
+    exploreTab.click();
+
+    expect(sidebar.isSettingsExpanded()).toBe(false);
+    expect(sidebar.getActiveTab()).toBe('explore');
+  });
+
+  it('structures filter collapsible pane with scrollable options body and fixed footer action', () => {
+    const sidebar = new SidebarComponent(
+      container,
+      filterStore,
+      favoritesStore,
+      { onSelectPOI: () => {} },
+      debugStore,
+      true // filters open
+    );
+    sidebar.setData(mockFeatures, mockRegion, []);
+
+    const filterPane = container.querySelector('.filters-collapsible');
+    expect(filterPane).not.toBeNull();
+
+    const scrollBody = container.querySelector('#filters-scroll-body');
+    expect(scrollBody).not.toBeNull();
+
+    // Contains filter controls inside scrollBody
+    expect(scrollBody?.querySelector('#filter-categories-container')).not.toBeNull();
+    expect(scrollBody?.querySelector('#filter-walk-container')).not.toBeNull();
+    expect(scrollBody?.querySelector('#filter-cuisines-container')).not.toBeNull();
+    expect(scrollBody?.querySelector('.filter-quick-toggles')).not.toBeNull();
+
+    // Footer actions container is direct child of filters collapsible and contains view results button
+    const footerActions = container.querySelector('.filter-footer-actions');
+    expect(footerActions).not.toBeNull();
+    expect(footerActions?.querySelector('#btn-collapse-filters')).not.toBeNull();
+  });
 });

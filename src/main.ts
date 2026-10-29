@@ -14,7 +14,7 @@ import { FavoritesStore } from './state/favorites';
 import { DebugStore } from './state/debugState';
 import { SidebarComponent } from './ui/sidebar';
 import { POIDetailComponent } from './ui/poiDetail';
-import { POIFeature } from './types/poi';
+import { POIFeature, POIIconSize } from './types/poi';
 import { APP_CONFIG } from './config';
 import { parseUrlState, syncStateToUrl } from './utils/urlState';
 
@@ -72,6 +72,17 @@ async function bootstrap(): Promise<void> {
     }
     mapManager.setIsochronesVisible(initialIsochrones);
 
+    // Determine initial icon size (URL param > localStorage > APP_CONFIG default)
+    let initialIconSize: POIIconSize = APP_CONFIG.iconSize || 'medium';
+    const storedIcon = typeof localStorage !== 'undefined' ? (localStorage.getItem('cw_icon_size') as POIIconSize) : null;
+    if (storedIcon && ['small', 'medium', 'large', 'extra-large'].includes(storedIcon)) {
+      initialIconSize = storedIcon;
+    }
+    if (urlState.iconSize) {
+      initialIconSize = urlState.iconSize;
+    }
+    mapManager.setIconSize(initialIconSize);
+
     let selectedPoiIdState: string | null = urlState.poiId;
 
     const updateUrl = () => {
@@ -81,6 +92,7 @@ async function bootstrap(): Promise<void> {
         activeTab: sidebar.getActiveTab(),
         basemapStyle: mapManager.getBasemapStyle(),
         showIsochrones: mapManager.getIsochronesVisible(),
+        iconSize: mapManager.getIconSize(),
       });
     };
 
@@ -132,6 +144,10 @@ async function bootstrap(): Promise<void> {
           mapManager.setIsochronesVisible(visible);
           updateUrl();
         },
+        onIconSizeChange: (size) => {
+          mapManager.setIconSize(size);
+          updateUrl();
+        },
         onResize: () => {
           mapManager.resize();
         },
@@ -169,6 +185,7 @@ async function bootstrap(): Promise<void> {
     }
 
     sidebar.setShowIsochrones(initialIsochrones);
+    sidebar.setIconSize(initialIconSize, false);
 
     mapManager.renderPOIs(poiCollection);
     mapManager.updateFavorites(favoritesStore.getFavorites());

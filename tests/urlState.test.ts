@@ -138,4 +138,44 @@ describe('urlState utility', () => {
     });
     expect(qsTrue).not.toContain('isochrones');
   });
+
+  it('parses and serializes icon size parameter', () => {
+    // Parsing icon_size=large
+    const parsedLarge = parseUrlState('?icon_size=large');
+    expect(parsedLarge.iconSize).toBe('large');
+
+    // Parsing camelCase iconSize=extra-large
+    const parsedExtraLarge = parseUrlState('?iconSize=extra-large');
+    expect(parsedExtraLarge.iconSize).toBe('extra-large');
+
+    const filterState: FilterState = {
+      categories: new Set(['hotel']),
+      allowedWalkTimes: new Set([10]),
+      openNowOnly: false,
+      includeUnknownHours: true,
+      selectedCuisines: new Set([]),
+      searchQuery: '',
+      favoritesOnly: false,
+      excludeOvertureOnly: false,
+      nearestOnly: false,
+    };
+
+    // Serializing iconSize: 'large'
+    const qsLarge = buildQueryString({
+      filterState,
+      selectedPoiId: null,
+      activeTab: 'explore',
+      iconSize: 'large',
+    });
+    expect(qsLarge).toContain('icon_size=large');
+
+    // Serializing iconSize: 'medium' (omits as default)
+    const qsMedium = buildQueryString({
+      filterState,
+      selectedPoiId: null,
+      activeTab: 'explore',
+      iconSize: 'medium',
+    });
+    expect(qsMedium).not.toContain('icon_size');
+  });
 });

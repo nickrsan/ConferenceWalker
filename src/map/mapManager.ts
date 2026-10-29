@@ -5,7 +5,7 @@
  */
 
 import maplibregl, { Map as MapLibreMap, Popup, Marker } from 'maplibre-gl';
-import { POICategory, CATEGORY_META, POIFeature, POIFeatureCollection, RegionMetadata } from '../types/poi';
+import { POICategory, CATEGORY_META, POIFeature, POIFeatureCollection, RegionMetadata, POIIconSize } from '../types/poi';
 import { APP_CONFIG } from '../config';
 import {
   DEFAULT_MAP_STYLE,
@@ -18,6 +18,13 @@ import {
   BASEMAP_STYLES,
   BasemapStyleKey,
 } from './mapStyles';
+
+export const ICON_SIZE_MULTIPLIERS: Record<POIIconSize, number> = {
+  small: 0.75,
+  medium: 1.0,
+  large: 1.3,
+  'extra-large': 1.65,
+};
 
 export interface MapManagerEvents {
   onPOIClick?: (poiId: string, feature: POIFeature) => void;
@@ -34,6 +41,7 @@ export class MapManager {
   private favoriteIds: Set<string> = new Set();
   private isLoaded = false;
   private isochronesVisible = true;
+  private currentIconSize: POIIconSize = APP_CONFIG.iconSize || 'medium';
   private activeFilter: any[] | null = null;
   private currentStyleKey: BasemapStyleKey = 'positron';
   private events: MapManagerEvents = {};
@@ -241,6 +249,7 @@ export class MapManager {
     });
 
     const categoryColor = buildCategoryColorExpression();
+    const mult = this.getIconSizeMultiplier(this.currentIconSize);
 
     // 1. Favorites highlight halo
     this.map.addLayer({
@@ -249,12 +258,7 @@ export class MapManager {
       source: 'pois-source',
       filter: ['in', ['get', 'id'], ['literal', Array.from(this.favoriteIds)]],
       paint: {
-        'circle-radius': [
-          'interpolate', ['linear'], ['zoom'],
-          12, 11,
-          15, 16,
-          18, 22,
-        ],
+        'circle-radius': this.buildHaloRadiusExpression(mult),
         'circle-color': '#f59e0b',
         'circle-opacity': 0.38,
         'circle-stroke-width': 2.5,
@@ -268,12 +272,7 @@ export class MapManager {
       type: 'circle',
       source: 'pois-source',
       paint: {
-        'circle-radius': [
-          'interpolate', ['linear'], ['zoom'],
-          12, 4,
-          15, 6,
-          18, 8,
-        ],
+        'circle-radius': this.buildCircleRadiusExpression(mult),
         'circle-color': categoryColor as any,
         'circle-stroke-width': 1.5,
         'circle-stroke-color': '#ffffff',
@@ -289,13 +288,7 @@ export class MapManager {
       layout: {
         // Vector category icon
         'icon-image': ['concat', CATEGORY_ICON_PREFIX, ['get', 'category']],
-        'icon-size': [
-          'interpolate', ['linear'], ['zoom'],
-          12, 0.42,
-          14, 0.55,
-          16, 0.70,
-          18, 0.88,
-        ],
+        'icon-size': this.buildIconSizeExpression(mult),
         'icon-allow-overlap': true,
         'icon-ignore-placement': true,
         'icon-anchor': 'center',
@@ -334,12 +327,7 @@ export class MapManager {
       source: 'pois-source',
       filter: ['==', ['get', 'id'], this.selectedPoiId || ''],
       paint: {
-        'circle-radius': [
-          'interpolate', ['linear'], ['zoom'],
-          12, 11,
-          15, 16,
-          18, 22,
-        ],
+        'circle-radius': this.buildHaloRadiusExpression(mult),
         'circle-color': 'rgba(0, 0, 0, 0)',
         'circle-stroke-width': 3.5,
         'circle-stroke-color': '#0f172a',
@@ -406,6 +394,85 @@ export class MapManager {
    */
   public getBasemapStyle(): BasemapStyleKey {
     return this.currentStyleKey;
+  }
+
+  /**
+   * Returns numeric multiplier for given icon size preset or raw numeric value.
+   */
+  private getIconSizeMultiplier(size: POIIconSize | number): number {
+    if (typeof size === 'number') {
+      return size > 0 ? size : 1.0;
+    }
+    return ICON_SIZE_MULTIPLIERS[size] || 1.0;
+  }
+
+  /**
+   * Builds zoom-interpolated expression for MapLibre symbol layer icon sizing.
+   */
+  private buildIconSizeExpression(mult: number): any {
+    return [
+      'interpolate', ['linear'], ['zoom'],
+      12, +(0.42 * mult).toFixed(3),
+      14, +(0.55 * mult).toFixed(3),
+      16, +(0.70 * mult).toFixed(3),
+      18, +(0.88 * mult).toFixed(3),
+    ];
+  }
+
+  /**
+   * Builds zoom-interpolated expression for POI circle layer radius.
+   */
+  private buildCircleRadiusExpression(mult: number): any {
+    return [
+      'interpolate', ['linear'], ['zoom'],
+      12, +(4 * mult).toFixed(2),
+      15, +(6 * mult).toFixed(2),
+      18, +(8 * mult).toFixed(2),
+    ];
+  }
+
+  /**
+   * Builds zoom-interpolated expression for favorites halo and selection ring radius.
+   */
+  private buildHaloRadiusExpression(mult: number): any {
+    return [
+      'interpolate', ['linear'], ['zoom'],
+      12, +(11 * mult).toFixed(2),
+      15, +(16 * mult).toFixed(2),
+      18, +(22 * mult).toFixed(2),
+    ];
+  }
+
+  /**
+   * Updates map POI icon size dynamically across symbol, circle, halo, and selection layers.
+   */
+  public setIconSize(size: POIIconSize | number): void {
+    if (typeof size === 'string' && (size === 'small' || size === 'medium' || size === 'large' || size === 'extra-large')) {
+      this.currentIconSize = size;
+    }
+    const mult = this.getIconSizeMultiplier(size);
+
+    if (!this.isLoaded) return;
+
+    if (this.map.getLayer('pois-symbol')) {
+      this.map.setLayoutProperty('pois-symbol', 'icon-size', this.buildIconSizeExpression(mult));
+    }
+    if (this.map.getLayer('pois-circle')) {
+      this.map.setPaintProperty('pois-circle', 'circle-radius', this.buildCircleRadiusExpression(mult));
+    }
+    if (this.map.getLayer('pois-favorites-halo')) {
+      this.map.setPaintProperty('pois-favorites-halo', 'circle-radius', this.buildHaloRadiusExpression(mult));
+    }
+    if (this.map.getLayer('pois-selection-ring')) {
+      this.map.setPaintProperty('pois-selection-ring', 'circle-radius', this.buildHaloRadiusExpression(mult));
+    }
+  }
+
+  /**
+   * Retrieves the currently active POI icon size preset.
+   */
+  public getIconSize(): POIIconSize {
+    return this.currentIconSize;
   }
 
   /**

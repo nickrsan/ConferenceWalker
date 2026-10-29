@@ -23,8 +23,8 @@ The map displays:
 ## Filter Panel & Distance-Sorted Results
 
 To maximize clarity without cluttering your screen, ConferenceWalker displays the **Filter Panel in full length by default on startup**:
-1. **Curate Your Choices**: Set your preferred categories, walking distance limits, or cuisine types in the full-length filter panel.
-2. **View Results**: Click the prominent **View Results** button at the bottom of the filter panel (or tap **Close Filters**) to collapse the filter view and display the results.
+1. **Curate Your Choices**: Set your preferred categories, walking distance limits, or cuisine types in the filter panel. Filter options scroll smoothly within the pane.
+2. **Sticky Results Button**: On desktop screens, the prominent **View Results** button is pinned at the bottom of the filter pane in a dedicated action bar, remaining visible at all times so you never have to scroll to the bottom to view your matching venues.
 3. **Active Filter Summary Bar**: When filters are collapsed, an active filter summary bar appears directly below the tabs showing active filter tags (e.g. active categories, walk time limits, open now, nearest mode).
 4. **Prominent Edit Filters Button**: Click the **🎛️ Edit Filters** button or any summary chip on the bar to jump straight back into filter editing.
 5. **Closer Items First**: All places in the listing are automatically sorted by approximate walking distance from the conference center, with closer venues appearing first along with precise metric distance badges (e.g. `🚶 5 min (210 m)`).
@@ -49,12 +49,11 @@ ConferenceWalker includes a dedicated **Settings Panel** accessed via the **Sett
 1. **Accessing Settings**:
    - Click the **⚙️ Settings** button in the top right of the sidebar header.
    - The settings panel smoothly opens in place of the results listing so you can configure preferences without visual distractions.
-   - Click **Done** or the **✕** close button (or tap **Settings** again) when finished to return immediately to your venue results.
+   - Click **Done** or the **✕** close button (or tap **Settings** or switch directly to the **Explore** or **Saved** tabs) when finished to return immediately to your venue results.
 
-2. **Map Display — Walking Distance Zones (Isochrones)**:
-   - **What it does**: Controls whether concentric walking distance zones (5, 10, and 15-minute colored walkshed fills, boundaries, and labels) appear on the map.
-   - **Why use it**: Turn off distance zones for a cleaner map view focusing solely on venue pins and street labels, or turn it on to see walking reachability boundaries at a glance.
-   - **URL & Persistence**: Toggle state is saved in `localStorage` and synchronized via URL query parameters (`?isochrones=false`).
+2. **Map Display & Icons**:
+   - **Map Icon Size**: Choose between **Small (Compact)** (0.75x), **Medium (Default)** (1.0x), **Large** (1.3x), and **Extra Large** (1.65x) to scale category icons, circle backings, favorites halos, and selection rings according to your visual preference or screen resolution.
+   - **Walking Distance Zones (Isochrones)**: Controls whether concentric walking distance zones (5, 10, and 15-minute colored walkshed fills, boundaries, and labels) appear on the map. Turn off distance zones for a cleaner map view focusing solely on venue pins and street labels, or turn it on to see walking reachability boundaries at a glance. State is saved in `localStorage` and synchronized via URL query parameters (`?isochrones=false`).
 
 3. **Basemap Styles**:
    - Switch between **Positron (Light)**, **Bright**, and **Liberty** OpenFreeMap vector styles without losing active filters or venue pins.

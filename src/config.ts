@@ -4,7 +4,7 @@
  * startup display options, and region defaults.
  */
 
-import { POICategory, ALL_CATEGORIES, DEFAULT_CATEGORIES } from './types/poi';
+import { POICategory, ALL_CATEGORIES, DEFAULT_CATEGORIES, POIIconSize } from './types/poi';
 
 export interface ConferenceWalkerConfig {
   /**
@@ -68,6 +68,13 @@ export interface ConferenceWalkerConfig {
    * Defaults to true.
    */
   showIsochronesByDefault?: boolean;
+
+  /**
+   * Default POI map icon sizing ('small', 'medium', 'large', 'extra-large').
+   * Can be overridden by the user in Settings or via URL query parameter.
+   * Defaults to 'medium'.
+   */
+  iconSize?: POIIconSize;
 }
 
 /**
@@ -84,4 +91,5 @@ export const APP_CONFIG: ConferenceWalkerConfig = {
   defaultSavedPois: [],
   startWithSavedOnlyByDefault: false,
   showIsochronesByDefault: true,
+  iconSize: 'extra-large',
 };

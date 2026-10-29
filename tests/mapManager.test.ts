@@ -1,4 +1,39 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('maplibre-gl', () => {
+  return {
+    default: {
+      Map: vi.fn().mockImplementation(() => ({
+        on: vi.fn(),
+        getLayer: vi.fn(),
+        getSource: vi.fn(),
+        setLayoutProperty: vi.fn(),
+        setPaintProperty: vi.fn(),
+        setFilter: vi.fn(),
+        addSource: vi.fn(),
+        addLayer: vi.fn(),
+        addControl: vi.fn(),
+        remove: vi.fn(),
+        resize: vi.fn(),
+        setStyle: vi.fn(),
+        getStyle: vi.fn(() => ({})),
+      })),
+      NavigationControl: vi.fn().mockImplementation(() => ({})),
+      Popup: vi.fn().mockImplementation(() => ({
+        setLngLat: vi.fn().mockReturnThis(),
+        setHTML: vi.fn().mockReturnThis(),
+        addTo: vi.fn().mockReturnThis(),
+        remove: vi.fn(),
+      })),
+      Marker: vi.fn().mockImplementation(() => ({
+        setLngLat: vi.fn().mockReturnThis(),
+        addTo: vi.fn().mockReturnThis(),
+        remove: vi.fn(),
+      })),
+    },
+  };
+});
+
 import {
   buildCategoryColorExpression,
   buildCategoryIconExpression,
@@ -16,6 +51,7 @@ import {
   registerCategoryImages,
 } from '../src/map/mapStyles';
 import { ALL_CATEGORIES, CATEGORY_META, POICategory } from '../src/types/poi';
+import { MapManager, ICON_SIZE_MULTIPLIERS } from '../src/map/mapManager';
 
 describe('mapStyles', () => {
   it('buildCategoryColorExpression includes all 10 categories', () => {
@@ -100,5 +136,52 @@ describe('mapStyles', () => {
     };
     // Should resolve without throwing in Node/JSDOM test runner
     await expect(registerCategoryImages(mockMap)).resolves.not.toThrow();
+  });
+
+  it('defines valid icon size multipliers for all presets', () => {
+    expect(ICON_SIZE_MULTIPLIERS.small).toBe(0.75);
+    expect(ICON_SIZE_MULTIPLIERS.medium).toBe(1.0);
+    expect(ICON_SIZE_MULTIPLIERS.large).toBe(1.3);
+    expect(ICON_SIZE_MULTIPLIERS['extra-large']).toBe(1.65);
+  });
+
+  it('supports MapManager icon size state updates and layer property configuration', () => {
+    const container = document.createElement('div');
+    const mockMapInstance: any = {
+      on: vi.fn(),
+      getLayer: vi.fn((id: string) => true),
+      getSource: vi.fn(() => true),
+      setLayoutProperty: vi.fn(),
+      setPaintProperty: vi.fn(),
+      setFilter: vi.fn(),
+      addSource: vi.fn(),
+      addLayer: vi.fn(),
+    };
+
+    const manager = new MapManager(container);
+    // Directly inject mock map and mark loaded for headless unit testing
+    (manager as any).map = mockMapInstance;
+    (manager as any).isLoaded = true;
+
+    expect(manager.getIconSize()).toBe('extra-large');
+
+    manager.setIconSize('large');
+    expect(manager.getIconSize()).toBe('large');
+    expect(mockMapInstance.setLayoutProperty).toHaveBeenCalledWith(
+      'pois-symbol',
+      'icon-size',
+      expect.arrayContaining(['interpolate', ['linear'], ['zoom']])
+    );
+    expect(mockMapInstance.setPaintProperty).toHaveBeenCalledWith(
+      'pois-circle',
+      'circle-radius',
+      expect.arrayContaining(['interpolate', ['linear'], ['zoom']])
+    );
+
+    manager.setIconSize('small');
+    expect(manager.getIconSize()).toBe('small');
+
+    manager.setIconSize('extra-large');
+    expect(manager.getIconSize()).toBe('extra-large');
   });
 });

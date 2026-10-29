@@ -4,7 +4,7 @@
  * and nearest-mode into browser query parameters without triggering page reloads.
  */
 
-import { FilterState, POICategory, ALL_CATEGORIES } from '../types/poi';
+import { FilterState, POICategory, ALL_CATEGORIES, POIIconSize } from '../types/poi';
 import { BasemapStyleKey } from '../map/mapStyles';
 
 export interface ParsedUrlState {
@@ -20,6 +20,7 @@ export interface ParsedUrlState {
   excludeOvertureOnly: boolean | null;
   basemapStyle: BasemapStyleKey | null;
   showIsochrones: boolean | null;
+  iconSize: POIIconSize | null;
 }
 
 export interface UrlSyncOptions {
@@ -28,6 +29,7 @@ export interface UrlSyncOptions {
   activeTab: 'explore' | 'favorites';
   basemapStyle?: BasemapStyleKey;
   showIsochrones?: boolean;
+  iconSize?: POIIconSize;
 }
 
 /**
@@ -138,6 +140,13 @@ export function parseUrlState(searchString?: string): ParsedUrlState {
     showIsochrones = val === 'true' || val === '1';
   }
 
+  // Icon Size
+  let iconSize: POIIconSize | null = null;
+  const iconParam = params.get('icon_size') || params.get('iconSize');
+  if (iconParam && ['small', 'medium', 'large', 'extra-large'].includes(iconParam)) {
+    iconSize = iconParam as POIIconSize;
+  }
+
   return {
     poiId,
     activeTab,
@@ -151,6 +160,7 @@ export function parseUrlState(searchString?: string): ParsedUrlState {
     excludeOvertureOnly,
     basemapStyle,
     showIsochrones,
+    iconSize,
   };
 }
 
@@ -261,6 +271,14 @@ export function buildQueryString(options: UrlSyncOptions, existingSearch?: strin
       params.delete('isochrones');
       params.delete('show_isochrones');
     }
+  }
+
+  // Icon size
+  if (options.iconSize && options.iconSize !== 'medium') {
+    params.set('icon_size', options.iconSize);
+  } else {
+    params.delete('icon_size');
+    params.delete('iconSize');
   }
 
   const result = params.toString();

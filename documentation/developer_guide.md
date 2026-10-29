@@ -210,7 +210,7 @@ export interface FilterState {
 
 ### 4.5 Map Engine & Vector Layers (`src/map/mapManager.ts`, `src/map/mapStyles.ts`)
 - **Basemap Engine**: Uses OpenFreeMap Positron (`https://tiles.openfreemap.org/styles/positron`), an open-source, API-key-free vector tile service.
-- **Vector Icon Badges**: Pre-rasterizes crisp category SVG badges at 2x pixel ratio for high-DPI displays.
+- **Vector Icon Badges & Dynamic Sizing**: Pre-rasterizes crisp category SVG badges at 2x pixel ratio for high-DPI displays. Supports dynamic icon scaling via `setIconSize(size: POIIconSize | number)` with predefined presets (`small`: 0.75x, `medium`: 1.0x, `large`: 1.3x, `extra-large`: 1.65x) scaling vector symbol badges, circle backings, favorites halos, and selection rings in real time.
 - **POI Name Labels**: Renders on-map venue names directly beneath category symbols with text halos and automatic collision-avoidance layout.
 - **Bidirectional Selection**: Synchronizes map marker selections with sidebar card highlights and viewport camera centering.
 
@@ -287,8 +287,9 @@ ConferenceWalker implements bidirectional URL state synchronization using `URLSe
   - `exclude_overture`: Overture-only exclusion (`exclude_overture=true` / `exclude_overture=false`).
   - `basemap`: Active basemap style (`basemap=bright` or `basemap=liberty`).
   - `isochrones`: Walking distance zones visibility (`isochrones=false` / `isochrones=true`).
+  - `icon_size`: Map POI icon size preset (`icon_size=small` | `icon_size=large` | `icon_size=extra-large`).
 - **Functions**:
-  - `parseUrlState(searchString?)`: Hydrates initial filter, tab, basemap, isochrones, and POI selection state on app startup.
+  - `parseUrlState(searchString?)`: Hydrates initial filter, tab, basemap, isochrones, icon size, and POI selection state on app startup.
   - `buildQueryString(options, existingSearch?)`: Formats application state into a clean query string.
   - `syncStateToUrl(options)`: Updates address bar without page reload or history clutter.
 
@@ -299,23 +300,29 @@ The `ConferenceWalkerConfig` interface allows event organizers to customize bran
 - `conferencePinTitle?: string`: Tooltip title attribute for the center pin.
 - `welcomeHtml?: string`: Rich HTML or text rendered at the top of the sidebar in a dismissible welcome banner card (dismissal stored in `localStorage.cw_welcome_dismissed`).
 - `showIsochronesByDefault?: boolean`: Initial visibility of walking isochrone layers (default: `true`).
+- `iconSize?: POIIconSize`: Initial POI map icon sizing (`'small'`, `'medium'`, `'large'`, `'extra-large'`, default: `'medium'`).
 - `defaultCategories: POICategory[]`: Array of categories enabled by default.
 - `filtersExpandedByDefault: boolean`: Whether filter drawer is open on initial load.
 - `excludeOvertureOnlyByDefault: boolean`: Default exclusion setting for Overture-only venues.
 - `defaultSavedPois?: string[]`: Array of POI IDs pre-starred on launch.
 - `startWithSavedOnlyByDefault?: boolean`: Opens in Saved mode by default.
 
-### 4.11 Resizable Sidebar & Active Filter Summary Bar (`src/ui/sidebar.ts`)
+### 4.11 Resizable Sidebar & Filter Navigation Architecture (`src/ui/sidebar.ts`)
 - **Resizable Sidebar**:
   - Draggable handle (`#sidebar-resizer`) with pointer event capture and keyboard event handlers (`ArrowLeft`, `ArrowRight`, `Home`, `End`).
   - Clamps width between 300px and 700px (or up to 70% viewport width).
   - Persists width to `localStorage.cw_sidebar_width`.
   - Dispatches `onResize` event triggering `mapManager.resize()`.
   - Automatically hidden on mobile screens (`<= 768px`).
+- **Filter Scrolling Container & Sticky Desktop Actions**:
+  - Filter options are isolated in `.filters-scroll-body` (`overflow-y: auto; overscroll-behavior: contain;`), while the primary "View Results" CTA button is pinned in `.filter-footer-actions` (`flex: 0 0 auto;`) at the bottom of the filters pane.
+  - On desktop-sized screens, this ensures the action button is always visible without scrolling through extensive category, walk time, and cuisine lists.
 - **Active Filter Summary Bar**:
   - Displayed directly below tabs when filter drawer is collapsed.
   - Renders prominent `🎛️ Edit Filters` CTA button and quick chips summarizing active categories, walk time limits, nearest-only status, open-now status, cuisines, and data source filters.
   - Clicking any chip or button expands the filter drawer.
+- **Tab Switching & Settings Coordination**:
+  - Switching between Explore and Saved tabs automatically closes the Settings drawer and displays the appropriate venue cards.
 
 ### 4.12 Map Isochrone Layer Management (`src/map/mapManager.ts`)
 - `setIsochronesVisible(visible: boolean)`: Toggles visibility of `isochrones-fill`, `isochrones-line`, and `isochrones-labels` layers via `map.setLayoutProperty`.
