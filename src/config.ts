@@ -92,4 +92,7 @@ export const APP_CONFIG: ConferenceWalkerConfig = {
   startWithSavedOnlyByDefault: false,
   showIsochronesByDefault: true,
   iconSize: 'extra-large',
+  conferencePinLabel: "Sheraton Grand - Conference Venue",
+  conferenceSubtitle: "FOSS4GNA 2026 Sacramento",
+  welcomeHtml: "<p>Looking for coffee? A nice park to wander? A place to meet a friend? Find all of it in walking distance with the map and filters</p>",
 };

@@ -1,5 +1,3 @@
-* The lefthand sidebar is always a bit narrow on my device. Can you make it fully resizable by the user?
-* When switching out of the filters to Explore or Saved, it can be confusing to get back to the filters. I think the filter button should be prominently displayed below the Explore Mode, along with a summary of active filters so that it's clear what's going on, or please suggest an alternative
-* At some point in a previous run, the ability to show isochrones disappeared. Can you bring it back along with a setting to show/disable it (along with storing the setting and bidirectional URL parameter syncing again)
-* I want a configuration option to display a different set of text on the main address pin that shows up and in the top left below the application title. That way I can use more meaninful text.
-* I'd also like the ability to configure HTML/text that shows up in the lefthand sidebar to welcome people to the application.
+* When changing map styles, all the POIs disappear. Please fix it so that changing map styles allows the POIs to show.
+* The icons in the POIs are hard to see in many cases. Can you check contrast of icons on each color and make changes as needed?
+* The size options still skew small. Could we adjust all of them slightly larger to give people more selection? Thank you!
