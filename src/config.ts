@@ -29,6 +29,17 @@ export interface ConferenceWalkerConfig {
    * Can be overridden by the user via the Settings panel or URL query parameter.
    */
   excludeOvertureOnlyByDefault: boolean;
+
+  /**
+   * Predefined list of saved/starred POI IDs to populate on initial launch.
+   */
+  defaultSavedPois?: string[];
+
+  /**
+   * Whether the application launches directly into Saved mode (showing only default saved POIs)
+   * while allowing users to switch back to the full Explore view.
+   */
+  startWithSavedOnlyByDefault?: boolean;
 }
 
 /**
@@ -42,4 +53,6 @@ export const APP_CONFIG: ConferenceWalkerConfig = {
   filtersExpandedByDefault: true,
   overtureMinConfidence: 0.98,
   excludeOvertureOnlyByDefault: true,
+  defaultSavedPois: [],
+  startWithSavedOnlyByDefault: false,
 };

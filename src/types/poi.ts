@@ -109,4 +109,5 @@ export interface FilterState {
   searchQuery: string;
   favoritesOnly: boolean;
   excludeOvertureOnly: boolean;
+  nearestOnly: boolean;
 }

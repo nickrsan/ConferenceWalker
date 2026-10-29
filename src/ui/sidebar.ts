@@ -12,10 +12,13 @@ import { WalkDistanceFilterComponent } from './walkDistanceFilter';
 import { CuisineFilterComponent } from './cuisineFilter';
 import { evaluateOpeningHours, getOpeningBadge } from '../utils/openingHours';
 import { calculateDistanceMeters, formatDistance } from '../utils/directions';
+import { isExportModeEnabled, downloadSavedPoisFile } from '../utils/exportSaved';
+import { BasemapStyleKey } from '../map/mapStyles';
 
 export interface SidebarEvents {
   onSelectPOI: (poi: POIFeature) => void;
   onHoverPOI?: (poi: POIFeature | null) => void;
+  onBasemapChange?: (style: BasemapStyleKey) => void;
 }
 
 export class SidebarComponent {
@@ -31,6 +34,7 @@ export class SidebarComponent {
   private isSettingsOpen = false; // Settings panel for data source and debug options
   private isMobileExpanded = false;
   private selectedPoiId: string | null = null;
+  private currentBasemapStyle: BasemapStyleKey = 'positron';
 
   private categoryFilter: CategoryFilterComponent;
   private walkDistanceFilter: WalkDistanceFilterComponent;
@@ -96,6 +100,11 @@ export class SidebarComponent {
     this.render();
   }
 
+  public setBasemapStyle(style: BasemapStyleKey): void {
+    this.currentBasemapStyle = style;
+    this.render();
+  }
+
   public setData(allFeatures: POIFeature[], region: RegionMetadata, availableCuisines: string[]): void {
     this.allFeatures = allFeatures;
     this.region = region;
@@ -106,6 +115,10 @@ export class SidebarComponent {
     this.cuisineFilter.setData(availableCuisines, allFeatures, favs);
 
     this.render();
+  }
+
+  public getActiveTab(): 'explore' | 'favorites' {
+    return this.activeTab;
   }
 
   public setActiveTab(tab: 'explore' | 'favorites'): void {
@@ -255,11 +268,30 @@ export class SidebarComponent {
           >
             ★ Saved <span class="tab-count">(${favCount})</span>
           </button>
+          ${
+            isExportModeEnabled()
+              ? `
+            <button
+              type="button"
+              class="tab-btn btn-export-saved"
+              id="btn-export-saved"
+              title="Download saved POIs JSON configuration"
+              aria-label="Export Saved POIs"
+            >
+              📥 Export (${favCount})
+            </button>
+          `
+              : ''
+          }
         </div>
       </div>
 
       <div class="filters-collapsible ${this.isFiltersOpen ? 'open' : 'closed'}">
         <div class="filter-quick-toggles">
+          <label class="toggle-checkbox-label">
+            <input type="checkbox" id="chk-nearest-only" ${state.nearestOnly ? 'checked' : ''} />
+            <span class="label-text">📍 Nearest Only</span>
+          </label>
           <label class="toggle-checkbox-label">
             <input type="checkbox" id="chk-open-now" ${state.openNowOnly ? 'checked' : ''} />
             <span class="label-text">Open Now</span>
@@ -333,6 +365,35 @@ export class SidebarComponent {
               </label>
               <p class="settings-option-desc">
                 Display raw OpenStreetMap node/way IDs and Overture GERS identifiers on venue cards and detail panels.
+              </p>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3 class="settings-section-title">Basemap Style</h3>
+            <div class="settings-option">
+              <label for="select-basemap-style" class="label-text" style="font-weight: 600; margin-bottom: 6px; display: block;">
+                Map Theme
+              </label>
+              <select id="select-basemap-style" class="settings-select" aria-label="Select Basemap Style" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; background: #fff;">
+                <option value="positron" ${this.currentBasemapStyle === 'positron' ? 'selected' : ''}>Positron (Light)</option>
+                <option value="bright" ${this.currentBasemapStyle === 'bright' ? 'selected' : ''}>Bright</option>
+                <option value="liberty" ${this.currentBasemapStyle === 'liberty' ? 'selected' : ''}>Liberty</option>
+              </select>
+              <p class="settings-option-desc">
+                Choose between OpenFreeMap vector styles (Positron, Bright, or Liberty).
+              </p>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3 class="settings-section-title">Organizer & Export Tools</h3>
+            <div class="settings-option">
+              <button type="button" class="btn-text-action btn-export-action" id="btn-export-saved-settings">
+                📥 Export Saved POIs (${favCount})
+              </button>
+              <p class="settings-option-desc">
+                Download currently starred POIs as a JSON configuration file to set default recommendations for attendees.
               </p>
             </div>
           </div>
@@ -502,6 +563,15 @@ export class SidebarComponent {
       this.render();
     });
 
+    // Basemap style selector in Settings panel
+    this.container.querySelector('#select-basemap-style')?.addEventListener('change', (e) => {
+      const val = (e.target as HTMLSelectElement).value as BasemapStyleKey;
+      this.currentBasemapStyle = val;
+      if (this.events.onBasemapChange) {
+        this.events.onBasemapChange(val);
+      }
+    });
+
     // Debug mode toggle in Settings panel
     this.container.querySelector('#chk-debug-mode')?.addEventListener('change', (e) => {
       const checked = (e.target as HTMLInputElement).checked;
@@ -533,6 +603,20 @@ export class SidebarComponent {
 
     this.container.querySelector('#tab-favorites')?.addEventListener('click', () => {
       this.setActiveTab('favorites');
+    });
+
+    // Export saved POIs buttons
+    const handleExport = () => {
+      downloadSavedPoisFile(this.favoritesStore.getFavorites(), this.allFeatures);
+    };
+    this.container.querySelector('#btn-export-saved')?.addEventListener('click', handleExport);
+    this.container.querySelector('#btn-export-saved-settings')?.addEventListener('click', handleExport);
+
+    // Quick toggles: Nearest Only
+    this.container.querySelector('#chk-nearest-only')?.addEventListener('change', (e) => {
+      const checked = (e.target as HTMLInputElement).checked;
+      this.filterStore.setNearestOnly(checked, this.allFeatures, this.favoritesStore.getFavorites());
+      this.render();
     });
 
     // Quick toggles: Open Now
@@ -568,6 +652,19 @@ export class SidebarComponent {
         if (poi) {
           this.setSelectedPOI(poi.properties.id, false);
           this.events.onSelectPOI(poi);
+        }
+      });
+
+      card.addEventListener('keydown', (e: Event) => {
+        const keyEvent = e as KeyboardEvent;
+        if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
+          keyEvent.preventDefault();
+          const id = (card as HTMLElement).getAttribute('data-id');
+          const poi = this.allFeatures.find((f) => f.properties.id === id);
+          if (poi) {
+            this.setSelectedPOI(poi.properties.id, false);
+            this.events.onSelectPOI(poi);
+          }
         }
       });
 

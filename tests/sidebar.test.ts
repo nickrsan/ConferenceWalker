@@ -59,9 +59,11 @@ describe('SidebarComponent', () => {
         website: null,
         opening_hours: null,
         cuisines: ['diner'],
-        sources: ['overture'],
-        osm_id: null,
+        sources: ['osm', 'overture'],
+        osm_id: 'osm_close',
         overture_id: 'gers_close',
+        reservation_url: 'https://resy.com/diner',
+        order_url: 'https://order.diner.com',
       },
     },
     {
@@ -289,6 +291,29 @@ describe('SidebarComponent', () => {
   });
 
   it('toggles excluding Overture-only data via the settings panel', () => {
+    const featuresWithOvertureOnly: POIFeature[] = [
+      mockFeatures[0], // far_venue (OSM)
+      mockFeatures[2], // mid_venue (OSM + Overture)
+      {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [-121.491000, 38.579500] },
+        properties: {
+          id: 'overture_only_venue',
+          name: 'Overture Only Venue',
+          category: 'restaurant',
+          walk_time_minutes: 5,
+          address: 'Close St',
+          phone: null,
+          website: null,
+          opening_hours: null,
+          cuisines: ['diner'],
+          sources: ['overture'],
+          osm_id: null,
+          overture_id: 'gers_close',
+        },
+      },
+    ];
+
     const sidebar = new SidebarComponent(
       container,
       filterStore,
@@ -298,10 +323,10 @@ describe('SidebarComponent', () => {
       false
     );
 
-    sidebar.setData(mockFeatures, mockRegion, []);
+    sidebar.setData(featuresWithOvertureOnly, mockRegion, []);
 
-    // Initially all 3 POIs visible
-    expect(container.querySelectorAll('.poi-card').length).toBe(3);
+    // Initially 2 POIs visible because overture-only is excluded by default
+    expect(container.querySelectorAll('.poi-card').length).toBe(2);
 
     // Open settings panel
     const settingsBtn = container.querySelector('#btn-toggle-settings') as HTMLButtonElement;
@@ -309,24 +334,23 @@ describe('SidebarComponent', () => {
 
     const overtureChk = container.querySelector('#chk-disable-overture') as HTMLInputElement;
     expect(overtureChk).not.toBeNull();
-    expect(overtureChk.checked).toBe(false);
+    expect(overtureChk.checked).toBe(true);
 
-    // Check the toggle to disable Overture-only data
-    overtureChk.checked = true;
+    // Uncheck the toggle to allow Overture-only data
+    overtureChk.checked = false;
     overtureChk.dispatchEvent(new Event('change'));
 
-    expect(filterStore.isExcludeOvertureOnly()).toBe(true);
+    expect(filterStore.isExcludeOvertureOnly()).toBe(false);
 
     // Close settings to inspect cards
     const doneBtn = container.querySelector('#btn-collapse-settings') as HTMLButtonElement;
     doneBtn.click();
 
-    // Now only 2 POIs visible: 'close_venue' (Overture only) is excluded,
-    // while 'far_venue' (OSM) and 'mid_venue' (OSM + Overture) remain.
+    // Now all 3 POIs visible
     const cards = container.querySelectorAll('.poi-card');
-    expect(cards.length).toBe(2);
+    expect(cards.length).toBe(3);
     const cardIds = Array.from(cards).map((c) => c.getAttribute('data-id'));
-    expect(cardIds).not.toContain('close_venue');
+    expect(cardIds).toContain('overture_only_venue');
     expect(cardIds).toContain('far_venue');
     expect(cardIds).toContain('mid_venue');
   });
@@ -366,5 +390,57 @@ describe('SidebarComponent', () => {
     doneBtn.click();
 
     expect(container.querySelectorAll('.poi-card-debug-ids').length).toBe(3);
+  });
+
+  it('supports switching between Explore and Saved tabs and toggling curated views', () => {
+    favoritesStore.toggleFavorite('mid_venue');
+
+    const sidebar = new SidebarComponent(
+      container,
+      filterStore,
+      favoritesStore,
+      { onSelectPOI: () => {} },
+      debugStore,
+      false
+    );
+
+    sidebar.setData(mockFeatures, mockRegion, []);
+
+    // Initially in explore tab -> 3 POIs visible
+    expect(sidebar.getActiveTab()).toBe('explore');
+    expect(container.querySelectorAll('.poi-card').length).toBe(3);
+
+    // Switch to saved tab
+    sidebar.setActiveTab('favorites');
+    expect(sidebar.getActiveTab()).toBe('favorites');
+    expect(container.querySelectorAll('.poi-card').length).toBe(1);
+    expect(container.querySelector('.poi-card')?.getAttribute('data-id')).toBe('mid_venue');
+
+    // Switch back to explore tab -> all 3 POIs return
+    sidebar.setActiveTab('explore');
+    expect(sidebar.getActiveTab()).toBe('explore');
+    expect(container.querySelectorAll('.poi-card').length).toBe(3);
+  });
+
+  it('renders export saved POIs button in settings panel and exports configuration', () => {
+    favoritesStore.toggleFavorite('close_venue');
+    favoritesStore.toggleFavorite('mid_venue');
+
+    const sidebar = new SidebarComponent(
+      container,
+      filterStore,
+      favoritesStore,
+      { onSelectPOI: () => {} },
+      debugStore,
+      false
+    );
+
+    sidebar.setData(mockFeatures, mockRegion, []);
+
+    // Open settings panel
+    sidebar.setSettingsExpanded(true);
+    const exportBtn = container.querySelector('#btn-export-saved-settings') as HTMLButtonElement;
+    expect(exportBtn).not.toBeNull();
+    expect(exportBtn.textContent).toContain('Export Saved POIs (2)');
   });
 });

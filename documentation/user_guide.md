@@ -134,13 +134,63 @@ Click any venue marker on the map or its card in the sidebar list to open the **
 
 ---
 
-## Saved Favorites
+## Saved Favorites & Organizer Curated Venues
 
 ConferenceWalker keeps track of your favorite places throughout the conference:
 1. Click the star icon (☆) on any card, on the map, or inside the detail view to star a venue.
 2. Starred venues receive a **golden outer glow halo** on the map so they always stand out.
 3. Switch to the **★ Saved** tab in the sidebar header to view a dedicated listing of only your saved places.
-4. **Privacy & Offline Persistence**: Favorites are saved directly in your browser's `localStorage` — no login, tracking, or cloud account required!
+4. **Curated Startup Recommendations**: Conference organizers can configure the app to launch directly with recommended venues starred and the Saved tab active. Attendees can easily click the **Explore** tab to browse all conference venues.
+5. **Privacy & Offline Persistence**: Favorites are saved directly in your browser's `localStorage` — no login, tracking, or cloud account required!
+
+---
+
+## Organizer Saved POI Export Mode
+
+Event organizers can curate a list of recommended places (e.g. key conference hotels, recommended dinner spots, nearby pharmacies) and export them:
+1. Open ConferenceWalker with the export parameter: `?export_saved=true` (or open the **⚙️ Settings** drawer).
+2. Star the desired venues you want to recommend to attendees.
+3. Click the **📥 Export Saved POIs** button in the tab bar or inside Settings.
+4. A standardized `default_saved_pois.json` file will download containing all starred POI IDs and venue metadata, ready to be configured as `defaultSavedPois` in `src/config.ts`.
+
+---
+
+## URL Deep Linking & Shareable Views
+
+ConferenceWalker synchronizes its entire state with the browser address bar in real time using `history.replaceState`:
+- **Share Exact Views**: As you filter categories, walk times, cuisines, toggle Open Now or Nearest Only, switch tabs, change basemap styles, or select a specific venue, the URL automatically updates.
+- **Direct Linking**: Copy and share the URL from your browser address bar with colleagues or in conference messaging channels. Opening the link restores the exact same filters, active tab, selected venue detail card, and map position!
+
+---
+
+## Nearest Option per Category Mode
+
+Short on time and looking for the single closest option?
+- In the filter quick toggles, check **📍 Nearest Only** (or launch with `?nearest=true`).
+- ConferenceWalker groups all matching places by their category and displays only the **single closest venue** to the conference center for each enabled category (e.g. the closest vegan restaurant, the closest coffee shop, the closest pharmacy).
+
+---
+
+## OpenFreeMap Basemap Themes
+
+Customize the map styling according to your visual preference or lighting conditions:
+1. Open the **⚙️ Settings** panel.
+2. Under **Basemap Style**, select your preferred OpenFreeMap vector style:
+   - **Positron (Light)**: Clean, high-contrast basemap ideal for daytime walking and POI clarity.
+   - **Bright**: Vibrant vector style with detailed street, park, and building geometry.
+   - **Liberty**: Balanced vector style with subtle terrain shading and landuse highlights.
+3. The map seamlessly switches styles while preserving all walking isochrone overlays, venue markers, selection rings, and active filters.
+
+---
+
+## Accessibility & Keyboard Navigation
+
+ConferenceWalker is engineered for full **WCAG 2.1 AA** accessibility compliance:
+- **Keyboard Traversal**: Press `Tab` and `Shift+Tab` to navigate through all interactive controls, category chips, and venue cards.
+- **Card Selection**: Press `Enter` or `Space` while focused on any venue card in the list to select it, open its detail drawer, and focus the map on its location.
+- **Modal Dismissal**: Press `Escape` at any time while viewing venue details to close the modal drawer and return focus cleanly to the listing.
+- **Screen Reader Support**: Semantic ARIA landmarks (`role="tablist"`, `role="tab"`, `role="dialog"`, `aria-label`, `aria-selected`, `aria-pressed`) ensure assistive technologies accurately announce tab selections, open statuses, and interactive modals.
+- **High Contrast Focus Indicators**: All interactive elements feature prominent `:focus-visible` outline indicators. Respects user `prefers-reduced-motion` settings.
 
 ---
 

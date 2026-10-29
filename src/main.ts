@@ -16,6 +16,7 @@ import { SidebarComponent } from './ui/sidebar';
 import { POIDetailComponent } from './ui/poiDetail';
 import { POIFeature } from './types/poi';
 import { APP_CONFIG } from './config';
+import { parseUrlState, syncStateToUrl } from './utils/urlState';
 
 async function bootstrap(): Promise<void> {
   const mapElement = document.getElementById('map-container');
@@ -27,77 +28,127 @@ async function bootstrap(): Promise<void> {
     return;
   }
 
-  // 1. Initialize State Stores with configurable defaults
+  // 1. Parse initial state from URL parameters
+  const urlState = parseUrlState();
+
+  // 2. Initialize State Stores with URL overrides and configurable defaults
   const favoritesStore = new FavoritesStore();
   const debugStore = new DebugStore();
-  const filterStore = new FilterStore(undefined, APP_CONFIG.defaultCategories);
+  const filterStore = new FilterStore(
+    {
+      categories: urlState.categories || undefined,
+      allowedWalkTimes: urlState.allowedWalkTimes || undefined,
+      selectedCuisines: urlState.selectedCuisines || undefined,
+      searchQuery: urlState.searchQuery || undefined,
+      openNowOnly: urlState.openNowOnly !== null ? urlState.openNowOnly : undefined,
+      includeUnknownHours: urlState.includeUnknownHours !== null ? urlState.includeUnknownHours : undefined,
+      nearestOnly: urlState.nearestOnly !== null ? urlState.nearestOnly : undefined,
+      excludeOvertureOnly: urlState.excludeOvertureOnly !== null ? urlState.excludeOvertureOnly : undefined,
+    },
+    APP_CONFIG.defaultCategories
+  );
 
   try {
-    // 2. Fetch Region and POI Datasets
+    // 3. Fetch Region and POI Datasets
     const [regionData, poiCollection] = await Promise.all([
       loadRegionData('./data/region.json'),
       loadPOIData('./data/sacramento_pois.geojson'),
     ]);
 
+    filterStore.setCenterCoords(regionData.center);
     const availableCuisines = extractAvailableCuisines(poiCollection.features);
 
-    // 3. Initialize Map Manager
+    // 4. Initialize Map Manager
     const mapManager = new MapManager(mapElement, regionData);
 
-    // 4. Initialize POI Detail View
+    let selectedPoiIdState: string | null = urlState.poiId;
+
+    const updateUrl = () => {
+      syncStateToUrl({
+        filterState: filterStore.getState(),
+        selectedPoiId: selectedPoiIdState,
+        activeTab: sidebar.getActiveTab(),
+        basemapStyle: mapManager.getBasemapStyle(),
+      });
+    };
+
+    // 5. Initialize POI Detail View
     const poiDetail = new POIDetailComponent(
       detailElement,
       favoritesStore,
       regionData.center,
       {
         onClose: () => {
+          selectedPoiIdState = null;
           mapManager.setSelectedPOI(null);
           sidebar.setSelectedPOI(null);
+          updateUrl();
         },
         onFavoriteChange: () => {
           sidebar.render();
           mapManager.updateFavorites(favoritesStore.getFavorites());
+          updateUrl();
         },
       },
       debugStore
     );
 
-    // 5. Initialize Sidebar & Mobile Drawer
+    // 6. Initialize Sidebar & Mobile Drawer
     const sidebar = new SidebarComponent(
       sidebarElement,
       filterStore,
       favoritesStore,
       {
         onSelectPOI: (poi: POIFeature) => {
+          selectedPoiIdState = poi.properties.id;
           poiDetail.show(poi);
           mapManager.setSelectedPOI(poi.properties.id);
           mapManager.flyTo(poi.geometry.coordinates, 16);
           sidebar.setSelectedPOI(poi.properties.id);
+          updateUrl();
 
           // On mobile, collapse drawer slightly so map & card are visible
           if (window.innerWidth <= 768) {
             sidebarElement.classList.remove('mobile-expanded');
           }
         },
+        onBasemapChange: (style) => {
+          mapManager.setBasemapStyle(style);
+          updateUrl();
+        },
       },
       debugStore,
       APP_CONFIG.filtersExpandedByDefault
     );
 
-    // 6. Connect Map Interaction Events
+    // 7. Connect Map Interaction Events
     mapManager.setEvents({
       onPOIClick: (poiId, feature) => {
         // Resolve canonical POI from original loaded collection to guarantee rich attributes
         const canonicalPOI = poiCollection.features.find((f) => f.properties.id === poiId) || feature;
+        selectedPoiIdState = poiId;
         poiDetail.show(canonicalPOI);
         mapManager.setSelectedPOI(poiId);
         mapManager.flyTo(canonicalPOI.geometry.coordinates, 16);
         sidebar.setSelectedPOI(poiId);
+        updateUrl();
       },
     });
 
     // Supply initial dataset to components
     sidebar.setData(poiCollection.features, regionData, availableCuisines);
+
+    if (urlState.activeTab) {
+      sidebar.setActiveTab(urlState.activeTab);
+    } else if (APP_CONFIG.startWithSavedOnlyByDefault) {
+      sidebar.setActiveTab('favorites');
+    }
+
+    if (urlState.basemapStyle) {
+      mapManager.setBasemapStyle(urlState.basemapStyle);
+      sidebar.setBasemapStyle(urlState.basemapStyle);
+    }
+
     mapManager.renderPOIs(poiCollection);
     mapManager.updateFavorites(favoritesStore.getFavorites());
 
@@ -108,7 +159,18 @@ async function bootstrap(): Promise<void> {
     );
     mapManager.applyFilter(initialFilterExpr);
 
-    // 7. Connect Reactive Filter Subscriptions
+    // Hydrate deep-linked POI if present in URL
+    if (urlState.poiId) {
+      const targetPoi = poiCollection.features.find((f) => f.properties.id === urlState.poiId);
+      if (targetPoi) {
+        poiDetail.show(targetPoi);
+        mapManager.setSelectedPOI(targetPoi.properties.id);
+        mapManager.flyTo(targetPoi.geometry.coordinates, 16);
+        sidebar.setSelectedPOI(targetPoi.properties.id);
+      }
+    }
+
+    // 8. Connect Reactive Filter Subscriptions
     filterStore.subscribe((_state, _matchingIds) => {
       sidebar.render();
       const filterExpr = filterStore.buildMapLibreFilter(
@@ -116,20 +178,22 @@ async function bootstrap(): Promise<void> {
         favoritesStore.getFavorites()
       );
       mapManager.applyFilter(filterExpr);
+      updateUrl();
     });
 
-    // 8. Connect Favorites Subscriptions
+    // 9. Connect Favorites Subscriptions
     favoritesStore.subscribe((favs) => {
       sidebar.render();
       mapManager.updateFavorites(favs);
+      updateUrl();
     });
 
-    // 9. Connect Debug Store Subscriptions
+    // 10. Connect Debug Store Subscriptions
     debugStore.subscribe(() => {
       sidebar.render();
     });
 
-    // 10. Handle Window Resizing
+    // 11. Handle Window Resizing
     window.addEventListener('resize', () => {
       mapManager.resize();
     });

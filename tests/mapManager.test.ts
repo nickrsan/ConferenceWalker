@@ -4,6 +4,9 @@ import {
   buildCategoryIconExpression,
   DEFAULT_MAP_STYLE,
   OPENFREEMAP_POSITRON_STYLE_URL,
+  OPENFREEMAP_BRIGHT_STYLE_URL,
+  OPENFREEMAP_LIBERTY_STYLE_URL,
+  BASEMAP_STYLES,
   CARTO_POSITRON_RASTER_STYLE,
   SACRAMENTO_FALLBACK_CENTER,
   DEFAULT_ZOOM,
@@ -34,6 +37,14 @@ describe('mapStyles', () => {
   it('configures OpenFreeMap Positron as the primary default basemap style URL', () => {
     expect(OPENFREEMAP_POSITRON_STYLE_URL).toBe('https://tiles.openfreemap.org/styles/positron');
     expect(DEFAULT_MAP_STYLE).toBe(OPENFREEMAP_POSITRON_STYLE_URL);
+  });
+
+  it('defines all 3 OpenFreeMap vector styles (Positron, Bright, Liberty)', () => {
+    expect(BASEMAP_STYLES.positron.url).toBe(OPENFREEMAP_POSITRON_STYLE_URL);
+    expect(BASEMAP_STYLES.bright.url).toBe(OPENFREEMAP_BRIGHT_STYLE_URL);
+    expect(BASEMAP_STYLES.liberty.url).toBe(OPENFREEMAP_LIBERTY_STYLE_URL);
+    expect(BASEMAP_STYLES.bright.label).toBe('Bright');
+    expect(BASEMAP_STYLES.liberty.label).toBe('Liberty');
   });
 
   it('provides a valid Carto Positron raster fallback style without API keys', () => {

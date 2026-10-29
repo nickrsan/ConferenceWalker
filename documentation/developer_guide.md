@@ -272,6 +272,58 @@ To prevent unwanted window scroll jumps and recursive container reflows:
 - **`poi-list-container`**: Uses `flex: 1 1 0%`, `min-height: 0`, and `overscroll-behavior: contain` to prevent flex items from expanding document body dimensions.
 - **`setSelectedPOI`**: Performs internal container offset calculations and invokes `listContainer.scrollTo(...)` rather than `element.scrollIntoView(...)`, keeping scrolling strictly confined to the sidebar listing.
 
+### 4.9 URL State Synchronization (`src/utils/urlState.ts`)
+ConferenceWalker implements bidirectional URL state synchronization using `URLSearchParams` and `window.history.replaceState()`.
+- **Query Parameter Schema**:
+  - `poi`: Selected POI identifier (e.g. `poi=osm_90498377`).
+  - `tab`: Active tab mode (`saved` vs omitted for default `explore`).
+  - `cat`: Comma-separated list of enabled categories when not all 10 are active.
+  - `walk`: Comma-separated list of allowed walking times (`walk=5,10`).
+  - `cuisines`: Comma-separated list of active restaurant cuisines (`cuisines=vegan,mexican`).
+  - `q`: Text search query (`q=tacos`).
+  - `open_now`: Boolean flag (`open_now=true`).
+  - `unknown_hours`: Boolean flag (`unknown_hours=false`).
+  - `nearest`: Nearest-only mode (`nearest=true`).
+  - `exclude_overture`: Overture-only exclusion (`exclude_overture=true` / `exclude_overture=false`).
+  - `basemap`: Active basemap style (`basemap=bright` or `basemap=liberty`).
+- **Functions**:
+  - `parseUrlState(searchString?)`: Hydrates initial filter, tab, basemap, and POI selection state on app startup.
+  - `buildQueryString(options, existingSearch?)`: Formats application state into a clean query string.
+  - `syncStateToUrl(options)`: Updates address bar without page reload or history clutter.
+
+### 4.10 Saved POI Exporter & Default Seeding (`src/utils/exportSaved.ts`, `src/config.ts`)
+- **Export Mode**: Passing `?export_saved=true` or accessing Settings reveals the `📥 Export Saved POIs` action button.
+- **JSON Configuration Schema**:
+  ```json
+  {
+    "version": "1.0",
+    "exportedAt": "2026-10-28T21:00:00.000Z",
+    "count": 2,
+    "defaultSavedPois": ["osm_101", "osm_201"],
+    "venues": [...]
+  }
+  ```
+- **Configuration Options (`src/config.ts`)**:
+  - `defaultSavedPois?: string[]`: Array of POI IDs pre-starred for attendees on initial launch.
+  - `startWithSavedOnlyByDefault?: boolean`: Launches the application directly in Saved mode showing recommended places while letting attendees click Explore for all venues.
+  - `excludeOvertureOnlyByDefault: boolean`: Default exclusion setting for Overture-only venues.
+
+### 4.11 Basemap Switching Architecture (`src/map/mapStyles.ts`, `src/map/mapManager.ts`)
+- Supports OpenFreeMap vector styles: `positron` (Light), `bright`, and `liberty`.
+- `MapManager.setBasemapStyle(styleKey)` swaps vector basemaps without loss of isochrones, POI markers, selection halos, or active filter expressions by hooking into `style.load` and re-applying cached layer state and active filter expressions.
+
+### 4.12 Nearest-per-Category Algorithm (`src/state/filterState.ts`)
+When `nearestOnly: true`, candidate venues passing standard filter criteria are grouped by category. In each category group, candidates are sorted by:
+1. Walk time tier: `walk_time_minutes` (5 min < 10 min < 15 min < outside).
+2. Geodesic distance: Haversine distance in meters to conference center.
+3. Alphabetical tie-breaker.
+Only the single closest venue per category is returned.
+
+### 4.13 Accessibility (a11y) & Keyboard Navigation Architecture
+- **Semantic ARIA Roles**: `role="tablist"` and `role="tab"` for tab navigation; `role="dialog"`, `aria-modal="true"`, and descriptive `aria-label` for POI detail modals; `aria-pressed` for favorite star toggles.
+- **Keyboard Navigation**: POI cards have `tabindex="0"` with `Enter` and `Space` key activation handlers. Modal drawers attach global `Escape` listeners and manage focus cleanly.
+- **High-Contrast Focus Styles**: Comprehensive `:focus-visible` styling with 2.5px primary color outlines and `prefers-reduced-motion` animation suppression.
+
 ---
 
 ## 5. Development & Testing Commands

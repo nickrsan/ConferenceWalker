@@ -53,8 +53,8 @@ describe('FilterStore logic and predicates', () => {
         website: null,
         opening_hours: 'Mo-Fr 11:30-21:00',
         cuisines: ['italian', 'pizza'],
-        sources: ['overture'],
-        osm_id: null,
+        sources: ['osm', 'overture'],
+        osm_id: '3',
         overture_id: 'ov_1',
       },
     },
@@ -71,8 +71,8 @@ describe('FilterStore logic and predicates', () => {
         website: null,
         opening_hours: null, // Unknown hours
         cuisines: ['mexican'],
-        sources: ['overture'],
-        osm_id: null,
+        sources: ['osm', 'overture'],
+        osm_id: '4',
         overture_id: 'ov_2',
       },
     },
@@ -199,8 +199,28 @@ describe('FilterStore logic and predicates', () => {
   });
 
   it('excludes data only sourced from Overture when excludeOvertureOnly is enabled', () => {
+    const overtureOnlyVenue: POIFeature = {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [-121.49, 38.58] },
+      properties: {
+        id: 'ov_only_venue',
+        name: 'Overture Only Venue',
+        category: 'bar',
+        walk_time_minutes: 5,
+        address: '1300 K St',
+        phone: null,
+        website: null,
+        opening_hours: null,
+        cuisines: [],
+        sources: ['overture'],
+        osm_id: null,
+        overture_id: 'ov_98',
+      },
+    };
+
     const poisWithMerged: POIFeature[] = [
       ...samplePOIs,
+      overtureOnlyVenue,
       {
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [-121.49, 38.58] },
@@ -224,40 +244,37 @@ describe('FilterStore logic and predicates', () => {
     const store = new FilterStore();
     const favorites = new Set<string>();
 
-    // By default, excludeOvertureOnly is false -> all sources included
-    expect(store.isExcludeOvertureOnly()).toBe(false);
+    // By default, excludeOvertureOnly is true (configured in APP_CONFIG) -> Overture-only places excluded
+    expect(store.isExcludeOvertureOnly()).toBe(true);
     let matches = store.getMatchingIds(poisWithMerged, favorites);
-    expect(matches.has('coffee_5min')).toBe(true); // OSM only
-    expect(matches.has('italian_restaurant')).toBe(true); // Overture only
-    expect(matches.has('mexican_restaurant')).toBe(true); // Overture only
+    expect(matches.has('coffee_5min')).toBe(true); // OSM
+    expect(matches.has('ov_only_venue')).toBe(false); // Overture only excluded
     expect(matches.has('merged_venue')).toBe(true); // Merged OSM + Overture
 
-    // Enable excludeOvertureOnly
+    // Disable excludeOvertureOnly
     let notifyCallCount = 0;
     const unsubscribe = store.subscribe((state) => {
       notifyCallCount++;
       expect(state.excludeOvertureOnly).toBe(store.isExcludeOvertureOnly());
     });
 
-    store.setExcludeOvertureOnly(true, poisWithMerged, favorites);
-    expect(store.isExcludeOvertureOnly()).toBe(true);
+    store.setExcludeOvertureOnly(false, poisWithMerged, favorites);
+    expect(store.isExcludeOvertureOnly()).toBe(false);
     expect(notifyCallCount).toBe(1);
 
     matches = store.getMatchingIds(poisWithMerged, favorites);
-    // Overture-only places are excluded
-    expect(matches.has('italian_restaurant')).toBe(false);
-    expect(matches.has('mexican_restaurant')).toBe(false);
-    // OSM places and merged places remain visible
-    expect(matches.has('coffee_5min')).toBe(true);
-    expect(matches.has('coffee_15min')).toBe(true);
-    expect(matches.has('park_outside')).toBe(true);
-    expect(matches.has('merged_venue')).toBe(true);
+    expect(matches.has('ov_only_venue')).toBe(true);
+
+    // Re-enable excludeOvertureOnly
+    store.setExcludeOvertureOnly(true, poisWithMerged, favorites);
+    expect(store.isExcludeOvertureOnly()).toBe(true);
+    matches = store.getMatchingIds(poisWithMerged, favorites);
+    expect(matches.has('ov_only_venue')).toBe(false);
 
     // MapLibre filter expression excludes overture-only IDs
     const filterExpr = store.buildMapLibreFilter(poisWithMerged, favorites);
     const includedIds: string[] = filterExpr[2][1];
-    expect(includedIds).not.toContain('italian_restaurant');
-    expect(includedIds).not.toContain('mexican_restaurant');
+    expect(includedIds).not.toContain('ov_only_venue');
     expect(includedIds).toContain('merged_venue');
     expect(includedIds).toContain('coffee_5min');
 
@@ -265,13 +282,108 @@ describe('FilterStore logic and predicates', () => {
     store.resetFilters(poisWithMerged, favorites);
     expect(store.isExcludeOvertureOnly()).toBe(true);
 
-    // Disable excludeOvertureOnly -> all sources return
-    store.setExcludeOvertureOnly(false, poisWithMerged, favorites);
-    expect(store.isExcludeOvertureOnly()).toBe(false);
-    matches = store.getMatchingIds(poisWithMerged, favorites);
-    expect(matches.has('italian_restaurant')).toBe(true);
-    expect(matches.has('mexican_restaurant')).toBe(true);
-
     unsubscribe();
+  });
+
+  it('filters down to the single nearest POI per enabled category when nearestOnly is true', () => {
+    const pois: POIFeature[] = [
+      {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [-121.49, 38.58] },
+        properties: {
+          id: 'coffee_near',
+          name: 'Near Coffee',
+          category: 'coffee_tea',
+          walk_time_minutes: 5,
+          address: '1000 K St',
+          phone: null,
+          website: null,
+          opening_hours: null,
+          cuisines: ['coffee'],
+          sources: ['osm'],
+          osm_id: '1',
+          overture_id: null,
+        },
+      },
+      {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [-121.49, 38.58] },
+        properties: {
+          id: 'coffee_far',
+          name: 'Far Coffee',
+          category: 'coffee_tea',
+          walk_time_minutes: 15,
+          address: '2000 K St',
+          phone: null,
+          website: null,
+          opening_hours: null,
+          cuisines: ['coffee'],
+          sources: ['osm'],
+          osm_id: '2',
+          overture_id: null,
+        },
+      },
+      {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [-121.49, 38.58] },
+        properties: {
+          id: 'restaurant_near',
+          name: 'Near Restaurant',
+          category: 'restaurant',
+          walk_time_minutes: 5,
+          address: '1001 K St',
+          phone: null,
+          website: null,
+          opening_hours: null,
+          cuisines: ['vegan'],
+          sources: ['osm'],
+          osm_id: '3',
+          overture_id: null,
+        },
+      },
+      {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [-121.49, 38.58] },
+        properties: {
+          id: 'restaurant_far',
+          name: 'Far Restaurant',
+          category: 'restaurant',
+          walk_time_minutes: 10,
+          address: '1501 K St',
+          phone: null,
+          website: null,
+          opening_hours: null,
+          cuisines: ['italian'],
+          sources: ['osm'],
+          osm_id: '4',
+          overture_id: null,
+        },
+      },
+    ];
+
+    const store = new FilterStore();
+    const favorites = new Set<string>();
+
+    // Without nearestOnly, all matching items are returned
+    expect(store.isNearestOnly()).toBe(false);
+    let matches = store.getMatchingIds(pois, favorites);
+    expect(matches.size).toBe(4);
+
+    // Enable nearestOnly
+    store.setNearestOnly(true, pois, favorites);
+    expect(store.isNearestOnly()).toBe(true);
+
+    matches = store.getMatchingIds(pois, favorites);
+    // Exactly one per category: coffee_near and restaurant_near
+    expect(matches.size).toBe(2);
+    expect(matches.has('coffee_near')).toBe(true);
+    expect(matches.has('coffee_far')).toBe(false);
+    expect(matches.has('restaurant_near')).toBe(true);
+    expect(matches.has('restaurant_far')).toBe(false);
+
+    // Resetting filters disables nearestOnly
+    store.resetFilters(pois, favorites);
+    expect(store.isNearestOnly()).toBe(false);
+    expect(store.getMatchingIds(pois, favorites).size).toBe(4);
   });
 });

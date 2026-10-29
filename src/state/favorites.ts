@@ -4,6 +4,8 @@
  * fallback for private browsing modes or restricted environments.
  */
 
+import { APP_CONFIG } from '../config';
+
 const STORAGE_KEY = 'conference_walker_favorites_v1';
 
 export type FavoritesChangeListener = (favorites: Set<string>) => void;
@@ -12,8 +14,8 @@ export class FavoritesStore {
   private favorites: Set<string> = new Set();
   private listeners: Set<FavoritesChangeListener> = new Set();
 
-  constructor() {
-    this.loadFromStorage();
+  constructor(defaultPois?: string[]) {
+    this.loadFromStorage(defaultPois);
   }
 
   public getFavorites(): Set<string> {
@@ -59,6 +61,12 @@ export class FavoritesStore {
     this.notify();
   }
 
+  public setFavorites(poiIds: string[]): void {
+    this.favorites = new Set(poiIds.map(String));
+    this.saveToStorage();
+    this.notify();
+  }
+
   public subscribe(listener: FavoritesChangeListener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -71,21 +79,24 @@ export class FavoritesStore {
     }
   }
 
-  private loadFromStorage(): void {
+  private loadFromStorage(defaultPois?: string[]): void {
+    const defaults = defaultPois ?? APP_CONFIG.defaultSavedPois ?? [];
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         const stored = window.localStorage.getItem(STORAGE_KEY);
-        if (stored) {
+        if (stored !== null) {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed)) {
             this.favorites = new Set(parsed.map(String));
+            return;
           }
         }
       }
+      this.favorites = new Set(defaults.map(String));
     } catch {
       // In private browsing or sandbox mode, localStorage access might throw SecurityError.
       // Fallback to in-memory storage safely without crashing.
-      this.favorites = new Set();
+      this.favorites = new Set(defaults.map(String));
     }
   }
 

@@ -88,6 +88,29 @@ class TestCategoryClassification:
         cat, _ = classify_osm_tags({"amenity": "arts_centre"})
         assert cat == CATEGORY_ATTRACTION_ART
 
+    def test_osm_mural_and_public_art_classification(self):
+        # Wall murals and street art
+        cat, _ = classify_osm_tags({"tourism": "artwork", "artwork_type": "mural"})
+        assert cat == CATEGORY_ATTRACTION_ART
+
+        cat, _ = classify_osm_tags({"artwork_type": "wall_painting"})
+        assert cat == CATEGORY_ATTRACTION_ART
+
+        cat, _ = classify_osm_tags({"wall": "mural"})
+        assert cat == CATEGORY_ATTRACTION_ART
+
+        cat, _ = classify_osm_tags({"man_made": "artwork"})
+        assert cat == CATEGORY_ATTRACTION_ART
+
+        cat, _ = classify_osm_tags({"amenity": "public_art"})
+        assert cat == CATEGORY_ATTRACTION_ART
+
+        cat, _ = classify_osm_tags({"artwork_type": "street_art"})
+        assert cat == CATEGORY_ATTRACTION_ART
+
+        cat, _ = classify_osm_tags({"artwork_type": "sculpture"})
+        assert cat == CATEGORY_ATTRACTION_ART
+
         # Parks & Outdoors
         cat, _ = classify_osm_tags({"leisure": "park"})
         assert cat == CATEGORY_PARK_OUTDOORS

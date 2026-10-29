@@ -109,6 +109,9 @@ def classify_osm_tags(tags: dict) -> Tuple[Optional[str], List[str]]:
     public_transport = tags.get("public_transport", "").strip().lower()
     historic = tags.get("historic", "").strip().lower()
     landuse = tags.get("landuse", "").strip().lower()
+    artwork_type = tags.get("artwork_type", "").strip().lower()
+    man_made = tags.get("man_made", "").strip().lower()
+    wall = tags.get("wall", "").strip().lower()
 
     cuisines: List[str] = clean_cuisine_string(tags.get("cuisine"))
 
@@ -148,8 +151,11 @@ def classify_osm_tags(tags: dict) -> Tuple[Optional[str], List[str]]:
     # 8. Local Attractions & Art
     if (
         tourism in {"museum", "gallery", "artwork", "attraction", "viewpoint", "theme_park", "zoo", "aquarium"}
-        or amenity in {"arts_centre", "theatre", "cinema", "planetarium", "gallery"}
+        or amenity in {"arts_centre", "theatre", "cinema", "planetarium", "gallery", "public_art"}
         or historic in {"monument", "memorial", "castle", "ruins", "archaeological_site"}
+        or artwork_type in {"mural", "wall_painting", "street_art", "sculpture", "statue", "installation", "mosaic", "graffiti", "painting"}
+        or man_made in {"artwork", "street_art"}
+        or wall in {"mural", "artwork"}
     ):
         return CATEGORY_ATTRACTION_ART, []
 

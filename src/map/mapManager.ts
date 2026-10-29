@@ -14,6 +14,8 @@ import {
   CATEGORY_ICON_PREFIX,
   getCategoryMarkerSvg,
   registerCategoryImages,
+  BASEMAP_STYLES,
+  BasemapStyleKey,
 } from './mapStyles';
 
 export interface MapManagerEvents {
@@ -30,6 +32,8 @@ export class MapManager {
   private selectedPoiId: string | null = null;
   private favoriteIds: Set<string> = new Set();
   private isLoaded = false;
+  private activeFilter: any[] | null = null;
+  private currentStyleKey: BasemapStyleKey = 'positron';
   private events: MapManagerEvents = {};
 
   constructor(container: string | HTMLElement, region?: RegionMetadata, events?: MapManagerEvents) {
@@ -74,6 +78,9 @@ export class MapManager {
       }
       if (this.poiData) {
         this.renderPOIs(this.poiData);
+      }
+      if (this.activeFilter) {
+        this.applyFilter(this.activeFilter);
       }
     });
 
@@ -301,6 +308,14 @@ export class MapManager {
         'circle-stroke-color': '#0f172a',
       },
     });
+
+    // Re-apply active filters and favorites halo filter if already configured
+    if (this.activeFilter) {
+      this.applyFilter(this.activeFilter);
+    }
+    if (this.favoriteIds.size > 0) {
+      this.updateFavorites(this.favoriteIds);
+    }
   }
 
   /**
@@ -331,6 +346,7 @@ export class MapManager {
    * Applies an active filter expression to POI layers.
    */
   public applyFilter(filterExpression: any[] | null): void {
+    this.activeFilter = filterExpression;
     const expr: any = filterExpression || ['all'];
 
     if (this.isLoaded && this.map.getLayer('pois-symbol')) {
@@ -346,6 +362,47 @@ export class MapManager {
       const favFilter: any = ['all', expr, ['in', ['get', 'id'], ['literal', Array.from(this.favoriteIds)]]];
       this.map.setFilter('pois-favorites-halo', favFilter);
     }
+  }
+
+  /**
+   * Retrieves current active basemap style key.
+   */
+  public getBasemapStyle(): BasemapStyleKey {
+    return this.currentStyleKey;
+  }
+
+  /**
+   * Switches the active OpenFreeMap vector basemap style while preserving isochrone layers,
+   * POI markers, and active filters.
+   */
+  public async setBasemapStyle(styleKey: BasemapStyleKey): Promise<void> {
+    if (!BASEMAP_STYLES[styleKey]) return;
+    this.currentStyleKey = styleKey;
+    const styleUrl = BASEMAP_STYLES[styleKey].url;
+
+    return new Promise<void>((resolve) => {
+      this.map.once('style.load', async () => {
+        await registerCategoryImages(this.map);
+        if (this.region) {
+          this.renderIsochrones(this.region);
+        }
+        if (this.poiData) {
+          this.renderPOIs(this.poiData);
+        }
+        if (this.activeFilter) {
+          this.applyFilter(this.activeFilter);
+        }
+        if (this.selectedPoiId) {
+          this.setSelectedPOI(this.selectedPoiId);
+        }
+        if (this.favoriteIds.size > 0) {
+          this.updateFavorites(this.favoriteIds);
+        }
+        resolve();
+      });
+
+      this.map.setStyle(styleUrl);
+    });
   }
 
   /**

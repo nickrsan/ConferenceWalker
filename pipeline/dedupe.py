@@ -98,9 +98,26 @@ def compute_name_similarity(name1: str, name2: str) -> float:
         token_set = fuzz.token_set_ratio(norm1, norm2)
         return float(max(ratio_score, token_sort, token_set))
     else:
-        # Fallback to difflib
+        # Fallback to difflib with token sort & token set support
         matcher = difflib.SequenceMatcher(None, norm1, norm2)
-        return float(matcher.ratio() * 100.0)
+        full_ratio = matcher.ratio() * 100.0
+
+        tokens1 = " ".join(sorted(norm1.split()))
+        tokens2 = " ".join(sorted(norm2.split()))
+        token_sort_ratio = difflib.SequenceMatcher(None, tokens1, tokens2).ratio() * 100.0
+
+        set1 = set(norm1.split())
+        set2 = set(norm2.split())
+        if set1.issubset(set2) or set2.issubset(set1):
+            subset_ratio = 100.0 if (set1 and set2) else 0.0
+        else:
+            intersection = set1.intersection(set2)
+            if intersection:
+                subset_ratio = (2.0 * len(intersection)) / (len(set1) + len(set2)) * 100.0
+            else:
+                subset_ratio = 0.0
+
+        return float(max(full_ratio, token_sort_ratio, subset_ratio))
 
 
 def are_categories_compatible(cat1: str, cat2: str) -> bool:

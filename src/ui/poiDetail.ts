@@ -22,6 +22,7 @@ export class POIDetailComponent {
   private conferenceCoords: [number, number];
   private currentPOI: POIFeature | null = null;
   private events: POIDetailEvents = {};
+  private keydownListener: ((e: KeyboardEvent) => void) | null = null;
 
   constructor(
     container: HTMLElement,
@@ -53,14 +54,37 @@ export class POIDetailComponent {
     this.render();
     this.container.classList.add('visible');
     this.container.classList.remove('hidden');
+    this.container.setAttribute('aria-label', `Venue details for ${poi.properties.name}`);
+
+    // Manage keyboard accessibility (Escape to close, Tab trapping)
+    this.detachKeyboardListener();
+    this.keydownListener = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this.hide();
+      }
+    };
+    window.addEventListener('keydown', this.keydownListener);
+
+    // Focus close button for screen reader context
+    const closeBtn = this.container.querySelector('.btn-close-detail') as HTMLButtonElement | null;
+    closeBtn?.focus();
   }
 
   public hide(): void {
     this.currentPOI = null;
     this.container.classList.remove('visible');
     this.container.classList.add('hidden');
+    this.detachKeyboardListener();
     if (this.events.onClose) {
       this.events.onClose();
+    }
+  }
+
+  private detachKeyboardListener(): void {
+    if (this.keydownListener) {
+      window.removeEventListener('keydown', this.keydownListener);
+      this.keydownListener = null;
     }
   }
 

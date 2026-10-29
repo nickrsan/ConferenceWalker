@@ -6,11 +6,42 @@ import { StyleSpecification } from 'maplibre-gl';
 import { POICategory, CATEGORY_META } from '../types/poi';
 
 /**
- * OpenFreeMap Positron basemap style URL.
- * Free, open-source vector tile service providing high contrast, clean typography,
- * and zero API keys or rate limits, ideal for walkshed and POI visualization.
+ * OpenFreeMap vector basemap styles (Positron, Bright, Liberty).
+ * Free, open-source vector tile service providing zero API keys or rate limits.
  */
 export const OPENFREEMAP_POSITRON_STYLE_URL = 'https://tiles.openfreemap.org/styles/positron';
+export const OPENFREEMAP_BRIGHT_STYLE_URL = 'https://tiles.openfreemap.org/styles/bright';
+export const OPENFREEMAP_LIBERTY_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
+
+export type BasemapStyleKey = 'positron' | 'bright' | 'liberty';
+
+export interface BasemapStyleInfo {
+  key: BasemapStyleKey;
+  label: string;
+  url: string;
+  description: string;
+}
+
+export const BASEMAP_STYLES: Record<BasemapStyleKey, BasemapStyleInfo> = {
+  positron: {
+    key: 'positron',
+    label: 'Positron (Light)',
+    url: OPENFREEMAP_POSITRON_STYLE_URL,
+    description: 'Clean, light, high-contrast basemap ideal for walking and POI exploration.',
+  },
+  bright: {
+    key: 'bright',
+    label: 'Bright',
+    url: OPENFREEMAP_BRIGHT_STYLE_URL,
+    description: 'Vibrant, detailed OpenFreeMap style emphasizing streets and landmarks.',
+  },
+  liberty: {
+    key: 'liberty',
+    label: 'Liberty',
+    url: OPENFREEMAP_LIBERTY_STYLE_URL,
+    description: 'Balanced vector map style with subtle terrain and landuse shading.',
+  },
+};
 
 /**
  * Default active basemap style for ConferenceWalker (OpenFreeMap Positron).

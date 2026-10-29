@@ -11,15 +11,16 @@ import {
   ALL_CATEGORIES,
 } from '../types/poi';
 
-import { APP_CONFIG} from "../config";
-
+import { APP_CONFIG } from '../config';
 import { evaluateOpeningHours } from '../utils/openingHours';
+import { calculateDistanceMeters } from '../utils/directions';
 
 export type FilterChangeListener = (state: FilterState, matchingIds: Set<string>) => void;
 
 export class FilterStore {
   private state: FilterState;
   private defaultCategories: POICategory[];
+  private centerCoords: [number, number] | null = null;
   private listeners: Set<FilterChangeListener> = new Set();
   private readonly STORAGE_KEY_EXCLUDE_OVERTURE = 'conference_walker_exclude_overture';
 
@@ -37,23 +38,27 @@ export class FilterStore {
       searchQuery: initialState?.searchQuery || '',
       favoritesOnly: initialState?.favoritesOnly ?? false,
       excludeOvertureOnly: initialExcludeOverture,
+      nearestOnly: initialState?.nearestOnly ?? false,
     };
   }
 
   private detectInitialExcludeOverture(): boolean {
-    if (typeof window === 'undefined') return false;
+    if (typeof window === 'undefined') return APP_CONFIG.excludeOvertureOnlyByDefault ?? false;
     try {
       const params = new URLSearchParams(window.location.search);
       if (params.get('exclude_overture') === 'true' || params.get('no_overture') === 'true') {
         return true;
       }
-      let stored_val = window.localStorage.getItem(this.STORAGE_KEY_EXCLUDE_OVERTURE) === 'true';
-      if(!stored_val) {
-        return APP_CONFIG['excludeOvertureOnlyByDefault'];
+      if (params.get('exclude_overture') === 'false' || params.get('no_overture') === 'false') {
+        return false;
       }
-      return stored_val;
+      const stored = window.localStorage.getItem(this.STORAGE_KEY_EXCLUDE_OVERTURE);
+      if (stored !== null) {
+        return stored === 'true';
+      }
+      return APP_CONFIG.excludeOvertureOnlyByDefault ?? false;
     } catch {
-      return false;
+      return APP_CONFIG.excludeOvertureOnlyByDefault ?? false;
     }
   }
 
@@ -83,7 +88,27 @@ export class FilterStore {
       searchQuery: this.state.searchQuery,
       favoritesOnly: this.state.favoritesOnly,
       excludeOvertureOnly: this.state.excludeOvertureOnly,
+      nearestOnly: this.state.nearestOnly,
     };
+  }
+
+  public setCenterCoords(center: [number, number]): void {
+    this.centerCoords = center;
+  }
+
+  public isNearestOnly(): boolean {
+    return this.state.nearestOnly;
+  }
+
+  public setNearestOnly(
+    nearestOnly: boolean,
+    allFeatures?: POIFeature[],
+    favoriteIds?: Set<string>
+  ): void {
+    this.state.nearestOnly = nearestOnly;
+    if (allFeatures && favoriteIds) {
+      this.notify(allFeatures, favoriteIds);
+    }
   }
 
   public subscribe(listener: FilterChangeListener): () => void {
@@ -185,13 +210,55 @@ export class FilterStore {
     favoriteIds: Set<string>,
     now: Date = new Date()
   ): Set<string> {
-    const matching = new Set<string>();
+    const candidateFeatures: POIFeature[] = [];
     for (const feat of allFeatures) {
       if (this.matches(feat, favoriteIds, now)) {
-        matching.add(feat.properties.id);
+        candidateFeatures.push(feat);
       }
     }
-    return matching;
+
+    if (!this.state.nearestOnly) {
+      return new Set(candidateFeatures.map((f) => f.properties.id));
+    }
+
+    // Nearest Only Mode: Pick single nearest candidate per category
+    const categoryGroups = new Map<POICategory, POIFeature[]>();
+    for (const feat of candidateFeatures) {
+      const cat = feat.properties.category;
+      if (!categoryGroups.has(cat)) {
+        categoryGroups.set(cat, []);
+      }
+      categoryGroups.get(cat)!.push(feat);
+    }
+
+    const nearestIds = new Set<string>();
+    const center = this.centerCoords;
+
+    for (const [, candidates] of categoryGroups) {
+      candidates.sort((a, b) => {
+        const walkA = a.properties.walk_time_minutes ?? 999;
+        const walkB = b.properties.walk_time_minutes ?? 999;
+        if (walkA !== walkB) {
+          return walkA - walkB;
+        }
+
+        if (center) {
+          const distA = calculateDistanceMeters(center, a.geometry.coordinates);
+          const distB = calculateDistanceMeters(center, b.geometry.coordinates);
+          if (distA !== distB) {
+            return distA - distB;
+          }
+        }
+
+        return a.properties.name.localeCompare(b.properties.name);
+      });
+
+      if (candidates.length > 0) {
+        nearestIds.add(candidates[0].properties.id);
+      }
+    }
+
+    return nearestIds;
   }
 
   /**
@@ -305,6 +372,7 @@ export class FilterStore {
     this.state.selectedCuisines.clear();
     this.state.searchQuery = '';
     this.state.favoritesOnly = false;
+    this.state.nearestOnly = false;
     this.notify(allFeatures, favoriteIds);
   }
 }

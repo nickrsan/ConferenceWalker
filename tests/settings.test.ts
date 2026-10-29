@@ -115,10 +115,11 @@ describe('Settings Panel Component and Preferences', () => {
     );
     expect(titles).toContain('Data Sources');
     expect(titles).toContain('Developer & Inspection');
+    expect(titles).toContain('Basemap Style');
 
     const overtureCheckbox = container.querySelector('#chk-disable-overture') as HTMLInputElement;
     expect(overtureCheckbox).not.toBeNull();
-    expect(overtureCheckbox.checked).toBe(false);
+    expect(overtureCheckbox.checked).toBe(true);
 
     const debugCheckbox = container.querySelector('#chk-debug-mode') as HTMLInputElement;
     expect(debugCheckbox).not.toBeNull();
@@ -136,28 +137,36 @@ describe('Settings Panel Component and Preferences', () => {
     );
     sidebar.setData(samplePOIs, mockRegion, []);
 
-    // Initially all 3 POIs visible
-    expect(container.querySelectorAll('.poi-card').length).toBe(3);
+    // Initially 2 POIs visible (Overture-only excluded by default)
+    expect(container.querySelectorAll('.poi-card').length).toBe(2);
 
-    // Open settings and enable Overture exclusion
+    // Open settings and disable Overture exclusion
     sidebar.setSettingsExpanded(true);
     const overtureCheckbox = container.querySelector('#chk-disable-overture') as HTMLInputElement;
-    overtureCheckbox.checked = true;
+    overtureCheckbox.checked = false;
     overtureCheckbox.dispatchEvent(new Event('change'));
 
     // Check localStorage persistence
-    expect(window.localStorage.getItem('conference_walker_exclude_overture')).toBe('true');
-    expect(filterStore.isExcludeOvertureOnly()).toBe(true);
+    expect(window.localStorage.getItem('conference_walker_exclude_overture')).toBe('false');
+    expect(filterStore.isExcludeOvertureOnly()).toBe(false);
 
     // Close settings to view results
     sidebar.setSettingsExpanded(false);
 
-    const remainingCards = container.querySelectorAll('.poi-card');
-    expect(remainingCards.length).toBe(2);
-    const ids = Array.from(remainingCards).map((c) => c.getAttribute('data-id'));
+    const allCards = container.querySelectorAll('.poi-card');
+    expect(allCards.length).toBe(3);
+    const ids = Array.from(allCards).map((c) => c.getAttribute('data-id'));
     expect(ids).toContain('osm_only_poi');
     expect(ids).toContain('merged_poi');
-    expect(ids).not.toContain('overture_only_poi');
+    expect(ids).toContain('overture_only_poi');
+
+    // Re-enable Overture exclusion
+    sidebar.setSettingsExpanded(true);
+    overtureCheckbox.checked = true;
+    overtureCheckbox.dispatchEvent(new Event('change'));
+    expect(window.localStorage.getItem('conference_walker_exclude_overture')).toBe('true');
+    sidebar.setSettingsExpanded(false);
+    expect(container.querySelectorAll('.poi-card').length).toBe(2);
   });
 
   it('persists debug mode and toggles OSM & GERS ID pills on POI cards', () => {
@@ -185,7 +194,7 @@ describe('Settings Panel Component and Preferences', () => {
     // Close settings and inspect cards
     sidebar.setSettingsExpanded(false);
     const debugRows = container.querySelectorAll('.poi-card-debug-ids');
-    expect(debugRows.length).toBe(3);
+    expect(debugRows.length).toBe(2);
 
     const osmCard = container.querySelector('.poi-card[data-id="osm_only_poi"]');
     expect(osmCard?.textContent).toContain('OSM: 123456');
@@ -219,5 +228,36 @@ describe('Settings Panel Component and Preferences', () => {
     expect(doneBtn).not.toBeNull();
     doneBtn.click();
     expect(sidebar.isSettingsExpanded()).toBe(false);
+  });
+
+  it('allows selecting OpenFreeMap basemap styles in Settings panel', () => {
+    let chosenStyle: string | null = null;
+    const sidebar = new SidebarComponent(
+      container,
+      filterStore,
+      favoritesStore,
+      {
+        onSelectPOI: () => {},
+        onBasemapChange: (style) => {
+          chosenStyle = style;
+        },
+      },
+      debugStore,
+      false
+    );
+    sidebar.setData(samplePOIs, mockRegion, []);
+
+    sidebar.setSettingsExpanded(true);
+    const basemapSelect = container.querySelector('#select-basemap-style') as HTMLSelectElement;
+    expect(basemapSelect).not.toBeNull();
+    expect(basemapSelect.value).toBe('positron');
+
+    basemapSelect.value = 'bright';
+    basemapSelect.dispatchEvent(new Event('change'));
+    expect(chosenStyle).toBe('bright');
+
+    basemapSelect.value = 'liberty';
+    basemapSelect.dispatchEvent(new Event('change'));
+    expect(chosenStyle).toBe('liberty');
   });
 });

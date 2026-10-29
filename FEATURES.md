@@ -57,10 +57,20 @@ This document tracks all implemented features, capabilities, and data contracts 
 - **Overture-Only Data Exclusion Filter**: Option to filter out venues only sourced from Overture Maps (`sources: ['overture']`) to reduce noise and eliminate lower positional accuracy records, preserving all OpenStreetMap and merged places.
 
 ### 5. Detail View, Favorites, Settings, Directions & Documentation
-- **Dedicated Settings Panel**: Clean configuration drawer accessible via `⚙️ Settings` in the sidebar header housing the Overture-only exclusion toggle and developer inspection tools with seamless view coordination.
+- **Dedicated Settings Panel**: Clean configuration drawer accessible via `⚙️ Settings` in the sidebar header housing the Overture-only exclusion toggle, basemap switcher, organizer export tool, and developer inspection tools with seamless view coordination.
 - **Rich POI Detail Sheet**: Modal drawer displaying formatted address, operating hours, clickable external website links, and tappable `tel:` phone links.
 - **Persistent Favorites System**: Client-side starring mechanism stored in `window.localStorage` with defensive sandboxing support, persistent map glow highlights, and a dedicated Saved tab.
 - **Walking Directions Launcher**: Dynamic URL generator for **GraphHopper Maps** walking routing (`https://graphhopper.com/maps/?point=...&vehicle=foot`).
 - **Mobile Navigation Hand-Off**: `geo:` URI intent generation for native device navigation on Android and iOS devices.
 - **Responsive Mobile & Embed Design**: Touch targets >= 48px, mobile expandable bottom drawer, and seamless embedding inside `<iframe>` event portals without layout shifts.
 - **Comprehensive Guides & Documentation**: Detailed `documentation/user_guide.md` and `documentation/developer_guide.md`.
+
+### 6. Advanced Features, Deep Linking & Accessibility (New)
+- **URL-Triggered Saved POI Export Mode**: Administrative URL mode (`?export_saved=true` / `?export_mode=true`) providing dedicated export buttons in the header and settings drawer to export starred POIs as `default_saved_pois.json`.
+- **Configurable Default Saved POIs & Startup Saved Mode**: `defaultSavedPois` and `startWithSavedOnlyByDefault` settings in `src/config.ts` allowing conference organizers to seed recommended venues and launch directly into Saved mode while letting attendees switch to full Explore view.
+- **Overture Exclusion Default Lifecycle Fix**: Accurate parsing of query parameters, localStorage, and config defaults (`APP_CONFIG.excludeOvertureOnlyByDefault`) with MapLibre layer lifecycle retention ensuring map layers apply exclusions immediately upon loading.
+- **Bidirectional URL Deep Linking & State Synchronization**: URL synchronization via `history.replaceState` preserving active filters (categories, walk times, cuisines, open now, nearest mode, overture exclusion), search query, active tab, basemap theme, and selected POI across page reloads and shared links.
+- **OSM Mural & Public Art Classification**: Taxonomy classification in `pipeline/categories.py` mapping `artwork_type=mural`, `artwork_type=wall_painting`, `wall=mural`, `man_made=artwork`, `amenity=public_art`, and `artwork_type=street_art` to `attraction_art`.
+- **Nearest POI per Enabled Category Mode**: Quick toggle (`📍 Nearest Only`) and linkable URL parameter (`?nearest=true`) filtering candidate venues to only the single closest venue to the conference center for each enabled category.
+- **OpenFreeMap Vector Basemap Switcher**: Basemap style selector in Settings supporting OpenFreeMap `Positron` (Light), `Bright`, and `Liberty` vector styles without losing isochrones, POI markers, or active filter expressions.
+- **Accessibility (a11y) & Automated Testing**: Full WCAG 2.1 AA compliance with semantic ARIA landmark roles (`role="dialog"`, `role="tablist"`, `role="tab"`), keyboard POI card navigation (`Enter`/`Space`), focus management and `Escape` key handlers for modal drawers, high-contrast `:focus-visible` styling, reduced-motion media query support, and automated test suites.
