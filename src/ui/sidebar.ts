@@ -3,7 +3,7 @@
  * Houses filter controls, search, tabs (Explore vs Favorites), and POI listing.
  */
 
-import { POIFeature, RegionMetadata, CATEGORY_META } from '../types/poi';
+import { POIFeature, RegionMetadata, CATEGORY_META, ALL_CATEGORIES, POICategory } from '../types/poi';
 import { FilterStore } from '../state/filterState';
 import { FavoritesStore } from '../state/favorites';
 import { DebugStore } from '../state/debugState';
@@ -14,11 +14,18 @@ import { evaluateOpeningHours, getOpeningBadge } from '../utils/openingHours';
 import { calculateDistanceMeters, formatDistance } from '../utils/directions';
 import { isExportModeEnabled, downloadSavedPoisFile } from '../utils/exportSaved';
 import { BasemapStyleKey } from '../map/mapStyles';
+import { APP_CONFIG } from '../config';
+
+export const MIN_SIDEBAR_WIDTH = 300;
+export const MAX_SIDEBAR_WIDTH = 700;
+export const DEFAULT_SIDEBAR_WIDTH = 400;
 
 export interface SidebarEvents {
   onSelectPOI: (poi: POIFeature) => void;
   onHoverPOI?: (poi: POIFeature | null) => void;
   onBasemapChange?: (style: BasemapStyleKey) => void;
+  onIsochronesToggle?: (visible: boolean) => void;
+  onResize?: (width: number) => void;
 }
 
 export class SidebarComponent {
@@ -35,6 +42,12 @@ export class SidebarComponent {
   private isMobileExpanded = false;
   private selectedPoiId: string | null = null;
   private currentBasemapStyle: BasemapStyleKey = 'positron';
+  private showIsochrones = true;
+  private isWelcomeDismissed = false;
+  private sidebarWidth: number = DEFAULT_SIDEBAR_WIDTH;
+  private isResizing = false;
+  private resizeStartX = 0;
+  private resizeStartWidth = DEFAULT_SIDEBAR_WIDTH;
 
   private categoryFilter: CategoryFilterComponent;
   private walkDistanceFilter: WalkDistanceFilterComponent;
@@ -54,6 +67,25 @@ export class SidebarComponent {
     this.events = events;
     this.debugStore = debugStore || new DebugStore();
     this.isFiltersOpen = initialFiltersOpen;
+
+    const savedIso = typeof localStorage !== 'undefined' ? localStorage.getItem('cw_show_isochrones') : null;
+    if (savedIso !== null) {
+      this.showIsochrones = savedIso === 'true';
+    } else if (APP_CONFIG.showIsochronesByDefault !== undefined) {
+      this.showIsochrones = APP_CONFIG.showIsochronesByDefault;
+    }
+
+    this.isWelcomeDismissed =
+      typeof localStorage !== 'undefined' && localStorage.getItem('cw_welcome_dismissed') === 'true';
+
+    const storedWidth = typeof localStorage !== 'undefined' ? localStorage.getItem('cw_sidebar_width') : null;
+    if (storedWidth) {
+      const parsed = parseInt(storedWidth, 10);
+      if (!isNaN(parsed) && parsed >= MIN_SIDEBAR_WIDTH && parsed <= MAX_SIDEBAR_WIDTH) {
+        this.sidebarWidth = parsed;
+      }
+    }
+    this.applySidebarWidth(this.sidebarWidth, false);
 
     // Create sub-filter components with placeholder elements
     const catContainer = document.createElement('div');
@@ -103,6 +135,56 @@ export class SidebarComponent {
   public setBasemapStyle(style: BasemapStyleKey): void {
     this.currentBasemapStyle = style;
     this.render();
+  }
+
+  public setShowIsochrones(visible: boolean): void {
+    this.showIsochrones = visible;
+    this.render();
+  }
+
+  public getShowIsochrones(): boolean {
+    return this.showIsochrones;
+  }
+
+  public isWelcomeDismissedState(): boolean {
+    return this.isWelcomeDismissed;
+  }
+
+  public setSidebarWidth(width: number, persist = true): void {
+    const maxAllowed =
+      typeof window !== 'undefined'
+        ? Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, Math.floor(window.innerWidth * 0.7)))
+        : MAX_SIDEBAR_WIDTH;
+    const clamped = Math.max(MIN_SIDEBAR_WIDTH, Math.min(maxAllowed, width));
+    this.sidebarWidth = clamped;
+    this.applySidebarWidth(clamped, persist);
+    if (this.events.onResize) {
+      this.events.onResize(clamped);
+    }
+  }
+
+  public getSidebarWidth(): number {
+    return this.sidebarWidth;
+  }
+
+  private applySidebarWidth(width: number, persist: boolean): void {
+    if (typeof document !== 'undefined') {
+      document.documentElement.style.setProperty('--sidebar-width', `${width}px`);
+    }
+    if (this.container) {
+      this.container.style.width = `${width}px`;
+    }
+    const resizer = this.container?.querySelector('#sidebar-resizer');
+    if (resizer) {
+      resizer.setAttribute('aria-valuenow', String(width));
+    }
+    if (persist && typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('cw_sidebar_width', String(width));
+      } catch {
+        // ignore
+      }
+    }
   }
 
   public setData(allFeatures: POIFeature[], region: RegionMetadata, availableCuisines: string[]): void {
@@ -167,8 +249,9 @@ export class SidebarComponent {
     const favCount = favorites.size;
 
     // Filter features
+    const matchingIds = this.filterStore.getMatchingIds(this.allFeatures, favorites);
     const matchingFeatures = this.allFeatures.filter((f) =>
-      this.filterStore.matches(f, favorites)
+      matchingIds.has(f.properties.id)
     );
 
     // Sort features by approximate walking distance from conference center (closer items first)
@@ -192,7 +275,7 @@ export class SidebarComponent {
       });
     }
 
-    const confTitle = this.region?.name.split(',')[0] || 'Conference POI Explorer';
+    const confTitle = APP_CONFIG.conferenceSubtitle || this.region?.name.split(',')[0] || 'Conference POI Explorer';
 
     this.container.innerHTML = `
       <div class="sidebar-header">
@@ -231,6 +314,19 @@ export class SidebarComponent {
             </button>
           </div>
         </div>
+
+        ${
+          APP_CONFIG.welcomeHtml && !this.isWelcomeDismissed
+            ? `
+          <div class="welcome-banner-card" id="welcome-banner" role="region" aria-label="Welcome announcement">
+            <div class="welcome-banner-content">
+              ${APP_CONFIG.welcomeHtml}
+            </div>
+            <button type="button" class="btn-dismiss-welcome" id="btn-dismiss-welcome" aria-label="Dismiss announcement" title="Dismiss announcement">✕</button>
+          </div>
+        `
+            : ''
+        }
 
         <div class="search-bar">
           <span class="search-icon" aria-hidden="true">🔍</span>
@@ -387,6 +483,23 @@ export class SidebarComponent {
           </div>
 
           <div class="settings-section">
+            <h3 class="settings-section-title">Map Display</h3>
+            <div class="settings-option">
+              <label class="toggle-checkbox-label settings-checkbox-label">
+                <input
+                  type="checkbox"
+                  id="chk-show-isochrones"
+                  ${this.showIsochrones ? 'checked' : ''}
+                />
+                <span class="label-text">Show walking distance zones</span>
+              </label>
+              <p class="settings-option-desc">
+                Display concentric walking distance isochrone zones (5, 10, and 15-minute walksheds) on the map.
+              </p>
+            </div>
+          </div>
+
+          <div class="settings-section">
             <h3 class="settings-section-title">Organizer & Export Tools</h3>
             <div class="settings-option">
               <button type="button" class="btn-text-action btn-export-action" id="btn-export-saved-settings">
@@ -407,6 +520,7 @@ export class SidebarComponent {
       </div>
 
       <div class="poi-list-container" role="region" aria-label="Points of Interest List" style="${this.isFiltersOpen || this.isSettingsOpen ? 'display: none;' : ''}">
+        ${!this.isFiltersOpen && !this.isSettingsOpen ? this.renderActiveFilterSummary(matchingFeatures.length) : ''}
         ${
           matchingFeatures.length === 0
             ? `
@@ -489,6 +603,18 @@ export class SidebarComponent {
         `
         }
       </div>
+
+      <div
+        id="sidebar-resizer"
+        class="sidebar-resizer"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize sidebar"
+        tabindex="0"
+        aria-valuenow="${this.sidebarWidth}"
+        aria-valuemin="${MIN_SIDEBAR_WIDTH}"
+        aria-valuemax="${MAX_SIDEBAR_WIDTH}"
+      ></div>
     `;
 
     // Mount sub-filter components into containers
@@ -570,6 +696,31 @@ export class SidebarComponent {
       if (this.events.onBasemapChange) {
         this.events.onBasemapChange(val);
       }
+    });
+
+    // Isochrones visibility toggle in Settings panel
+    this.container.querySelector('#chk-show-isochrones')?.addEventListener('change', (e) => {
+      const checked = (e.target as HTMLInputElement).checked;
+      this.showIsochrones = checked;
+      try {
+        localStorage.setItem('cw_show_isochrones', String(checked));
+      } catch {
+        // ignore
+      }
+      if (this.events.onIsochronesToggle) {
+        this.events.onIsochronesToggle(checked);
+      }
+    });
+
+    // Welcome banner dismiss button
+    this.container.querySelector('#btn-dismiss-welcome')?.addEventListener('click', () => {
+      this.isWelcomeDismissed = true;
+      try {
+        localStorage.setItem('cw_welcome_dismissed', 'true');
+      } catch {
+        // ignore
+      }
+      this.render();
     });
 
     // Debug mode toggle in Settings panel
@@ -689,5 +840,166 @@ export class SidebarComponent {
         }
       });
     });
+
+    // Active filter summary interactions
+    this.container.querySelector('#btn-edit-filters-prominent')?.addEventListener('click', () => {
+      this.setFiltersExpanded(true);
+    });
+
+    this.container.querySelector('#filter-summary-chips-container')?.addEventListener('click', () => {
+      this.setFiltersExpanded(true);
+    });
+
+    this.container.querySelector('#filter-summary-chips-container')?.addEventListener('keydown', (e: Event) => {
+      const ke = e as KeyboardEvent;
+      if (ke.key === 'Enter' || ke.key === ' ') {
+        ke.preventDefault();
+        this.setFiltersExpanded(true);
+      }
+    });
+
+    // Sidebar resizer drag & keyboard handling
+    const resizer = this.container.querySelector('#sidebar-resizer') as HTMLElement | null;
+    if (resizer) {
+      resizer.addEventListener('pointerdown', (e: PointerEvent) => {
+        if (typeof window !== 'undefined' && window.innerWidth <= 768) return;
+        this.isResizing = true;
+        this.resizeStartX = e.clientX;
+        this.resizeStartWidth = this.sidebarWidth;
+        try {
+          resizer.setPointerCapture(e.pointerId);
+        } catch {
+          // ignore
+        }
+        if (typeof document !== 'undefined') {
+          document.body.classList.add('resizing-sidebar');
+        }
+        e.preventDefault();
+      });
+
+      resizer.addEventListener('pointermove', (e: PointerEvent) => {
+        if (!this.isResizing) return;
+        const delta = e.clientX - this.resizeStartX;
+        const newWidth = this.resizeStartWidth + delta;
+        if (typeof window !== 'undefined' && window.requestAnimationFrame) {
+          window.requestAnimationFrame(() => {
+            this.setSidebarWidth(newWidth, false);
+          });
+        } else {
+          this.setSidebarWidth(newWidth, false);
+        }
+      });
+
+      const stopResize = (e: PointerEvent) => {
+        if (!this.isResizing) return;
+        this.isResizing = false;
+        try {
+          resizer.releasePointerCapture(e.pointerId);
+        } catch {
+          // ignore
+        }
+        if (typeof document !== 'undefined') {
+          document.body.classList.remove('resizing-sidebar');
+        }
+        this.setSidebarWidth(this.sidebarWidth, true);
+      };
+
+      resizer.addEventListener('pointerup', stopResize);
+      resizer.addEventListener('pointercancel', stopResize);
+
+      resizer.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          this.setSidebarWidth(this.sidebarWidth - 20, true);
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          this.setSidebarWidth(this.sidebarWidth + 20, true);
+        } else if (e.key === 'Home') {
+          e.preventDefault();
+          this.setSidebarWidth(MIN_SIDEBAR_WIDTH, true);
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          this.setSidebarWidth(MAX_SIDEBAR_WIDTH, true);
+        }
+      });
+    }
+  }
+
+  /**
+   * Renders the active filter summary bar displayed below tabs in list view.
+   */
+  private renderActiveFilterSummary(matchingCount: number): string {
+    const state = this.filterStore.getState();
+    const chips: string[] = [];
+
+    // Categories
+    if (state.categories.size === 0) {
+      chips.push('<span class="filter-chip-summary cat-chip-summary" data-action="edit-filters">No categories</span>');
+    } else if (state.categories.size < ALL_CATEGORIES.length) {
+      for (const cat of state.categories) {
+        const meta = CATEGORY_META[cat];
+        if (meta) {
+          chips.push(
+            `<span class="filter-chip-summary cat-chip-summary" data-action="edit-filters" title="${meta.label}">${meta.icon} ${meta.label}</span>`
+          );
+        }
+      }
+    }
+
+    // Walk times
+    if (state.allowedWalkTimes.size < 4 && state.allowedWalkTimes.size > 0) {
+      const times = Array.from(state.allowedWalkTimes).filter((t): t is number => typeof t === 'number');
+      if (times.length > 0) {
+        const maxTime = Math.max(...times);
+        chips.push(`<span class="filter-chip-summary walk-chip-summary" data-action="edit-filters">⏱️ ≤${maxTime} min</span>`);
+      }
+    }
+
+    // Nearest Only
+    if (state.nearestOnly) {
+      chips.push('<span class="filter-chip-summary nearest-chip-summary" data-action="edit-filters">📍 Nearest Only</span>');
+    }
+
+    // Open Now
+    if (state.openNowOnly) {
+      chips.push('<span class="filter-chip-summary open-chip-summary" data-action="edit-filters">🟢 Open Now</span>');
+    }
+
+    // Cuisines
+    if (state.selectedCuisines.size > 0) {
+      for (const cui of state.selectedCuisines) {
+        chips.push(`<span class="filter-chip-summary cuisine-chip-summary" data-action="edit-filters">🍽️ ${cui.replace(/_/g, ' ')}</span>`);
+      }
+    }
+
+    // Exclude Overture
+    if (this.filterStore.isExcludeOvertureOnly()) {
+      chips.push('<span class="filter-chip-summary overture-chip-summary" data-action="edit-filters">OSM Only</span>');
+    }
+
+    const hasSpecificFilters = chips.length > 0;
+    const chipsHtml = hasSpecificFilters
+      ? chips.join('')
+      : '<span class="filter-summary-all-venues" data-action="edit-filters">Showing all venues</span>';
+
+    return `
+      <div class="active-filter-summary-bar" id="active-filter-summary-bar" role="region" aria-label="Active filter summary">
+        <div class="filter-summary-content">
+          <button
+            type="button"
+            class="btn-edit-filters-prominent"
+            id="btn-edit-filters-prominent"
+            aria-label="Edit filters"
+            title="Edit and adjust filters"
+          >
+            <span class="icon">🎛️</span>
+            <span>Edit Filters</span>
+          </button>
+          <div class="filter-summary-chips-container" id="filter-summary-chips-container" role="button" tabindex="0" aria-label="Open filter editor">
+            ${chipsHtml}
+          </div>
+        </div>
+      </div>
+    `;
   }
 }

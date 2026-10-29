@@ -61,6 +61,17 @@ async function bootstrap(): Promise<void> {
     // 4. Initialize Map Manager
     const mapManager = new MapManager(mapElement, regionData);
 
+    // Determine initial isochrones visibility (URL param > localStorage > APP_CONFIG default)
+    let initialIsochrones = APP_CONFIG.showIsochronesByDefault !== false;
+    const storedIso = typeof localStorage !== 'undefined' ? localStorage.getItem('cw_show_isochrones') : null;
+    if (storedIso !== null) {
+      initialIsochrones = storedIso === 'true';
+    }
+    if (urlState.showIsochrones !== null) {
+      initialIsochrones = urlState.showIsochrones;
+    }
+    mapManager.setIsochronesVisible(initialIsochrones);
+
     let selectedPoiIdState: string | null = urlState.poiId;
 
     const updateUrl = () => {
@@ -69,6 +80,7 @@ async function bootstrap(): Promise<void> {
         selectedPoiId: selectedPoiIdState,
         activeTab: sidebar.getActiveTab(),
         basemapStyle: mapManager.getBasemapStyle(),
+        showIsochrones: mapManager.getIsochronesVisible(),
       });
     };
 
@@ -116,6 +128,13 @@ async function bootstrap(): Promise<void> {
           mapManager.setBasemapStyle(style);
           updateUrl();
         },
+        onIsochronesToggle: (visible) => {
+          mapManager.setIsochronesVisible(visible);
+          updateUrl();
+        },
+        onResize: () => {
+          mapManager.resize();
+        },
       },
       debugStore,
       APP_CONFIG.filtersExpandedByDefault
@@ -148,6 +167,8 @@ async function bootstrap(): Promise<void> {
       mapManager.setBasemapStyle(urlState.basemapStyle);
       sidebar.setBasemapStyle(urlState.basemapStyle);
     }
+
+    sidebar.setShowIsochrones(initialIsochrones);
 
     mapManager.renderPOIs(poiCollection);
     mapManager.updateFavorites(favoritesStore.getFavorites());

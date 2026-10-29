@@ -40,6 +40,34 @@ export interface ConferenceWalkerConfig {
    * while allowing users to switch back to the full Explore view.
    */
   startWithSavedOnlyByDefault?: boolean;
+
+  /**
+   * Optional custom subtitle displayed below the application title in the sidebar header.
+   * Defaults to region name if not specified.
+   */
+  conferenceSubtitle?: string;
+
+  /**
+   * Optional custom label displayed on the conference center map marker pin.
+   * Defaults to region name if not specified.
+   */
+  conferencePinLabel?: string;
+
+  /**
+   * Optional custom tooltip title attribute for the conference center map marker.
+   */
+  conferencePinTitle?: string;
+
+  /**
+   * Optional HTML or text content rendered in a dismissible welcome banner card at the top of the sidebar.
+   */
+  welcomeHtml?: string;
+
+  /**
+   * Whether walking distance isochrone layers (5, 10, 15 min walksheds) are visible by default on initial load.
+   * Defaults to true.
+   */
+  showIsochronesByDefault?: boolean;
 }
 
 /**
@@ -55,4 +83,5 @@ export const APP_CONFIG: ConferenceWalkerConfig = {
   excludeOvertureOnlyByDefault: true,
   defaultSavedPois: [],
   startWithSavedOnlyByDefault: false,
+  showIsochronesByDefault: true,
 };

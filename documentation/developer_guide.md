@@ -286,27 +286,41 @@ ConferenceWalker implements bidirectional URL state synchronization using `URLSe
   - `nearest`: Nearest-only mode (`nearest=true`).
   - `exclude_overture`: Overture-only exclusion (`exclude_overture=true` / `exclude_overture=false`).
   - `basemap`: Active basemap style (`basemap=bright` or `basemap=liberty`).
+  - `isochrones`: Walking distance zones visibility (`isochrones=false` / `isochrones=true`).
 - **Functions**:
-  - `parseUrlState(searchString?)`: Hydrates initial filter, tab, basemap, and POI selection state on app startup.
+  - `parseUrlState(searchString?)`: Hydrates initial filter, tab, basemap, isochrones, and POI selection state on app startup.
   - `buildQueryString(options, existingSearch?)`: Formats application state into a clean query string.
   - `syncStateToUrl(options)`: Updates address bar without page reload or history clutter.
 
-### 4.10 Saved POI Exporter & Default Seeding (`src/utils/exportSaved.ts`, `src/config.ts`)
-- **Export Mode**: Passing `?export_saved=true` or accessing Settings reveals the `📥 Export Saved POIs` action button.
-- **JSON Configuration Schema**:
-  ```json
-  {
-    "version": "1.0",
-    "exportedAt": "2026-10-28T21:00:00.000Z",
-    "count": 2,
-    "defaultSavedPois": ["osm_101", "osm_201"],
-    "venues": [...]
-  }
-  ```
-- **Configuration Options (`src/config.ts`)**:
-  - `defaultSavedPois?: string[]`: Array of POI IDs pre-starred for attendees on initial launch.
-  - `startWithSavedOnlyByDefault?: boolean`: Launches the application directly in Saved mode showing recommended places while letting attendees click Explore for all venues.
-  - `excludeOvertureOnlyByDefault: boolean`: Default exclusion setting for Overture-only venues.
+### 4.10 Configuration & Branding Options (`src/config.ts`)
+The `ConferenceWalkerConfig` interface allows event organizers to customize branding, default filters, and startup modes:
+- `conferenceSubtitle?: string`: Custom subtitle displayed under ConferenceWalker in the sidebar header (defaults to region name).
+- `conferencePinLabel?: string`: Custom label text rendered on the conference center map marker pin.
+- `conferencePinTitle?: string`: Tooltip title attribute for the center pin.
+- `welcomeHtml?: string`: Rich HTML or text rendered at the top of the sidebar in a dismissible welcome banner card (dismissal stored in `localStorage.cw_welcome_dismissed`).
+- `showIsochronesByDefault?: boolean`: Initial visibility of walking isochrone layers (default: `true`).
+- `defaultCategories: POICategory[]`: Array of categories enabled by default.
+- `filtersExpandedByDefault: boolean`: Whether filter drawer is open on initial load.
+- `excludeOvertureOnlyByDefault: boolean`: Default exclusion setting for Overture-only venues.
+- `defaultSavedPois?: string[]`: Array of POI IDs pre-starred on launch.
+- `startWithSavedOnlyByDefault?: boolean`: Opens in Saved mode by default.
+
+### 4.11 Resizable Sidebar & Active Filter Summary Bar (`src/ui/sidebar.ts`)
+- **Resizable Sidebar**:
+  - Draggable handle (`#sidebar-resizer`) with pointer event capture and keyboard event handlers (`ArrowLeft`, `ArrowRight`, `Home`, `End`).
+  - Clamps width between 300px and 700px (or up to 70% viewport width).
+  - Persists width to `localStorage.cw_sidebar_width`.
+  - Dispatches `onResize` event triggering `mapManager.resize()`.
+  - Automatically hidden on mobile screens (`<= 768px`).
+- **Active Filter Summary Bar**:
+  - Displayed directly below tabs when filter drawer is collapsed.
+  - Renders prominent `🎛️ Edit Filters` CTA button and quick chips summarizing active categories, walk time limits, nearest-only status, open-now status, cuisines, and data source filters.
+  - Clicking any chip or button expands the filter drawer.
+
+### 4.12 Map Isochrone Layer Management (`src/map/mapManager.ts`)
+- `setIsochronesVisible(visible: boolean)`: Toggles visibility of `isochrones-fill`, `isochrones-line`, and `isochrones-labels` layers via `map.setLayoutProperty`.
+- `getIsochronesVisible()`: Returns current visibility boolean.
+- Re-applies visibility state automatically across basemap style switches.
 
 ### 4.11 Basemap Switching Architecture (`src/map/mapStyles.ts`, `src/map/mapManager.ts`)
 - Supports OpenFreeMap vector styles: `positron` (Light), `bright`, and `liberty`.

@@ -90,8 +90,57 @@ html, body {
   flex-direction: column;
   border-right: 1px solid var(--color-border);
   transition: transform 0.25s ease;
-  overflow: hidden;
-  contain: strict;
+  overflow: visible;
+}
+
+/* Sidebar Resizer Handle */
+.sidebar-resizer {
+  position: absolute;
+  top: 0;
+  right: -5px;
+  width: 10px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 20;
+  background: transparent;
+  transition: background-color 0.2s ease;
+  touch-action: none;
+  user-select: none;
+}
+
+.sidebar-resizer:hover,
+.sidebar-resizer:focus-visible,
+body.resizing-sidebar .sidebar-resizer {
+  background-color: var(--color-primary);
+  outline: none;
+}
+
+.sidebar-resizer::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 36px;
+  background-color: #cbd5e1;
+  border-radius: 1px;
+  transition: background-color 0.2s ease;
+}
+
+.sidebar-resizer:hover::after,
+.sidebar-resizer:focus-visible::after,
+body.resizing-sidebar .sidebar-resizer::after {
+  background-color: #ffffff;
+}
+
+body.resizing-sidebar {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+body.resizing-sidebar * {
+  cursor: col-resize !important;
 }
 
 .sidebar-header {
@@ -185,6 +234,68 @@ html, body {
   background-color: var(--color-primary);
   color: #ffffff;
   border-color: var(--color-primary);
+}
+
+/* Welcome Banner Card */
+.welcome-banner-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-md);
+  color: #1e3a8a;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.welcome-banner-content {
+  flex: 1;
+}
+
+.welcome-banner-content p {
+  margin: 0 0 4px;
+}
+
+.welcome-banner-content p:last-child {
+  margin-bottom: 0;
+}
+
+.welcome-banner-content a {
+  color: #1d4ed8;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.btn-dismiss-welcome {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #60a5fa;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+
+.btn-dismiss-welcome:hover {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.btn-dismiss-welcome:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
 }
 
 /* Search bar */
@@ -708,6 +819,127 @@ html, body {
   color: var(--color-text-muted);
   padding: 8px;
   text-align: center;
+}
+
+/* Active Filter Summary Bar */
+.active-filter-summary-bar {
+  flex-shrink: 0;
+  background-color: #f8fafc;
+  border-bottom: 1px solid var(--color-border);
+  padding: 8px 12px;
+  margin: -12px -16px 12px -16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-summary-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-edit-filters-prominent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background-color: var(--color-primary);
+  color: #ffffff;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.15s ease;
+  min-height: 32px;
+}
+
+.btn-edit-filters-prominent:hover {
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-edit-filters-prominent:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.filter-summary-chips-container {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+  cursor: pointer;
+}
+
+.filter-chip-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.filter-chip-summary:hover {
+  border-color: #94a3b8;
+  background-color: #f1f5f9;
+}
+
+.filter-chip-summary.cat-chip-summary {
+  background-color: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.filter-chip-summary.walk-chip-summary {
+  background-color: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+
+.filter-chip-summary.nearest-chip-summary {
+  background-color: #fef3c7;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.filter-chip-summary.open-chip-summary {
+  background-color: #f0fdf4;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+.filter-chip-summary.cuisine-chip-summary {
+  background-color: #fff1f2;
+  border-color: #fecdd3;
+  color: #9f1239;
+}
+
+.filter-chip-summary.overture-chip-summary {
+  background-color: #faf5ff;
+  border-color: #e9d5ff;
+  color: #6b21a8;
+}
+
+.filter-summary-all-venues {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+  cursor: pointer;
 }
 
 /* POI List */
@@ -1367,6 +1599,10 @@ html, body {
 
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
+  .sidebar-resizer {
+    display: none !important;
+  }
+
   #sidebar-container {
     top: auto;
     bottom: 0;

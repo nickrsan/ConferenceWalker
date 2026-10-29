@@ -260,4 +260,36 @@ describe('Settings Panel Component and Preferences', () => {
     basemapSelect.dispatchEvent(new Event('change'));
     expect(chosenStyle).toBe('liberty');
   });
+
+  it('allows toggling isochrone walking distance zones in Settings panel', () => {
+    let isochronesToggled = false;
+    let isochroneVal = true;
+    const sidebar = new SidebarComponent(
+      container,
+      filterStore,
+      favoritesStore,
+      {
+        onSelectPOI: () => {},
+        onIsochronesToggle: (val) => {
+          isochronesToggled = true;
+          isochroneVal = val;
+        },
+      },
+      debugStore,
+      false
+    );
+    sidebar.setData(samplePOIs, mockRegion, []);
+
+    sidebar.setSettingsExpanded(true);
+    const isoCheckbox = container.querySelector('#chk-show-isochrones') as HTMLInputElement;
+    expect(isoCheckbox).not.toBeNull();
+    expect(isoCheckbox.checked).toBe(true);
+
+    isoCheckbox.checked = false;
+    isoCheckbox.dispatchEvent(new Event('change'));
+
+    expect(isochronesToggled).toBe(true);
+    expect(isochroneVal).toBe(false);
+    expect(window.localStorage.getItem('cw_show_isochrones')).toBe('false');
+  });
 });

@@ -25,26 +25,46 @@ The map displays:
 To maximize clarity without cluttering your screen, ConferenceWalker displays the **Filter Panel in full length by default on startup**:
 1. **Curate Your Choices**: Set your preferred categories, walking distance limits, or cuisine types in the full-length filter panel.
 2. **View Results**: Click the prominent **View Results** button at the bottom of the filter panel (or tap **Close Filters**) to collapse the filter view and display the results.
-3. **Closer Items First**: All places in the listing are automatically sorted by approximate walking distance from the conference center, with closer venues appearing first along with precise metric distance badges (e.g. `🚶 5 min (210 m)`).
-4. **Reopen Filters Anytime**: Click the **Filters (🎛️)** button in the sidebar header whenever you want to adjust your category, walk time, or cuisine preferences.
+3. **Active Filter Summary Bar**: When filters are collapsed, an active filter summary bar appears directly below the tabs showing active filter tags (e.g. active categories, walk time limits, open now, nearest mode).
+4. **Prominent Edit Filters Button**: Click the **🎛️ Edit Filters** button or any summary chip on the bar to jump straight back into filter editing.
+5. **Closer Items First**: All places in the listing are automatically sorted by approximate walking distance from the conference center, with closer venues appearing first along with precise metric distance badges (e.g. `🚶 5 min (210 m)`).
+6. **Reopen Filters Anytime**: Click the **Filters (🎛️)** button in the sidebar header whenever you want to adjust your category, walk time, or cuisine preferences.
 
 ---
 
-## Settings Panel & Data Sources
+## Fully Resizable Sidebar
 
-ConferenceWalker includes a dedicated **Settings Panel** accessed via the **Settings (⚙️)** button in the sidebar header. The settings panel allows you to customize data sources and enable technical inspection tools:
+On desktop monitors and widescreen tablets, you can dynamically customize the width of the left sidebar to suit your screen layout:
+- **Mouse & Pointer Drag**: Hover over the right edge of the sidebar until the cursor changes to a horizontal resize indicator (`↔`), then click and drag left or right to make the panel wider (up to 700px) or narrower (down to 300px).
+- **Keyboard Resizing**: Focus the resizer handle using `Tab` and press `Left Arrow` (shrink width) or `Right Arrow` (expand width) in 20px increments. Press `Home` to snap to minimum width or `End` to snap to maximum width.
+- **Persistent Preferences**: Your chosen width is automatically saved in your browser and restored on subsequent visits.
+- **Automatic Map Resizing**: The map canvas updates seamlessly as you drag without layout clipping or visual artifacts.
+
+---
+
+## Settings Panel, Basemaps & Display Options
+
+ConferenceWalker includes a dedicated **Settings Panel** accessed via the **Settings (⚙️)** button in the sidebar header. The settings panel allows you to customize data sources, map styles, and display options:
 
 1. **Accessing Settings**:
    - Click the **⚙️ Settings** button in the top right of the sidebar header.
    - The settings panel smoothly opens in place of the results listing so you can configure preferences without visual distractions.
    - Click **Done** or the **✕** close button (or tap **Settings** again) when finished to return immediately to your venue results.
 
-2. **Data Sources — Disable Overture-Only Data**:
+2. **Map Display — Walking Distance Zones (Isochrones)**:
+   - **What it does**: Controls whether concentric walking distance zones (5, 10, and 15-minute colored walkshed fills, boundaries, and labels) appear on the map.
+   - **Why use it**: Turn off distance zones for a cleaner map view focusing solely on venue pins and street labels, or turn it on to see walking reachability boundaries at a glance.
+   - **URL & Persistence**: Toggle state is saved in `localStorage` and synchronized via URL query parameters (`?isochrones=false`).
+
+3. **Basemap Styles**:
+   - Switch between **Positron (Light)**, **Bright**, and **Liberty** OpenFreeMap vector styles without losing active filters or venue pins.
+
+4. **Data Sources — Disable Overture-Only Data**:
    - **What it does**: Allows you to exclude places that are only sourced from Overture Maps.
    - **Why use it**: Remote Overture data can sometimes be noisy or feature lower positional accuracy compared to community-verified OpenStreetMap nodes. Enabling this toggle cleans up the map by showing only venues that have verified OpenStreetMap data (both OSM-only venues and venues merged across both sources).
    - **Persistence**: Your preference is saved in your browser's local storage and remembered across sessions. You can also bookmark or launch with `?exclude_overture=true` in the URL.
 
-3. **Developer & Inspection — Show OSM & GERS IDs**:
+5. **Developer & Inspection — Show OSM & GERS IDs**:
    - **What it does**: Displays the raw OpenStreetMap node/way ID (e.g. `OSM: 90498377`) and Overture Global Entity Reference System ID (e.g. `GERS: 08f2...`) on venue cards and in the detail sheet.
    - **Why use it**: Ideal for conference organizers, cartographers, and local contributors verifying venue data or contributing fixes back to OpenStreetMap.
 

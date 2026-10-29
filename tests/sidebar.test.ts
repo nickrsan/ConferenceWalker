@@ -443,4 +443,151 @@ describe('SidebarComponent', () => {
     expect(exportBtn).not.toBeNull();
     expect(exportBtn.textContent).toContain('Export Saved POIs (2)');
   });
+
+  it('supports resizing sidebar via setSidebarWidth, pointer dragging, and keyboard arrow keys with localStorage persistence', () => {
+    let resizedWidth: number | null = null;
+    const sidebar = new SidebarComponent(
+      container,
+      filterStore,
+      favoritesStore,
+      {
+        onSelectPOI: () => {},
+        onResize: (w) => {
+          resizedWidth = w;
+        },
+      },
+      debugStore,
+      false
+    );
+    sidebar.setData(mockFeatures, mockRegion, []);
+
+    expect(sidebar.getSidebarWidth()).toBe(400);
+
+    // Resize programmatically
+    sidebar.setSidebarWidth(520, true);
+    expect(sidebar.getSidebarWidth()).toBe(520);
+    expect(resizedWidth).toBe(520);
+    expect(window.localStorage.getItem('cw_sidebar_width')).toBe('520');
+
+    // Clamping min/max limits
+    sidebar.setSidebarWidth(100);
+    expect(sidebar.getSidebarWidth()).toBe(300); // MIN_SIDEBAR_WIDTH
+
+    sidebar.setSidebarWidth(1200);
+    expect(sidebar.getSidebarWidth()).toBe(700); // MAX_SIDEBAR_WIDTH
+
+    // Keyboard navigation on resizer element
+    const resizer = container.querySelector('#sidebar-resizer') as HTMLElement;
+    expect(resizer).not.toBeNull();
+    expect(resizer.getAttribute('role')).toBe('separator');
+    expect(resizer.getAttribute('aria-orientation')).toBe('vertical');
+
+    // ArrowLeft decreases width by 20
+    sidebar.setSidebarWidth(450);
+    resizer.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+    expect(sidebar.getSidebarWidth()).toBe(430);
+
+    // ArrowRight increases width by 20
+    resizer.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+    expect(sidebar.getSidebarWidth()).toBe(450);
+
+    // Home jumps to minimum width
+    resizer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home' }));
+    expect(sidebar.getSidebarWidth()).toBe(300);
+
+    // End jumps to maximum width
+    resizer.dispatchEvent(new KeyboardEvent('keydown', { key: 'End' }));
+    expect(sidebar.getSidebarWidth()).toBe(700);
+  });
+
+  it('renders active filter summary bar when filters are collapsed and expands filters on edit click', () => {
+    const sidebar = new SidebarComponent(
+      container,
+      filterStore,
+      favoritesStore,
+      { onSelectPOI: () => {} },
+      debugStore,
+      false // filters collapsed
+    );
+    sidebar.setData(mockFeatures, mockRegion, []);
+
+    // Active filter summary bar is present
+    const summaryBar = container.querySelector('#active-filter-summary-bar');
+    expect(summaryBar).not.toBeNull();
+    expect(summaryBar?.textContent).toContain('Edit Filters');
+
+    // Click prominent edit filters button
+    const editBtn = container.querySelector('#btn-edit-filters-prominent') as HTMLButtonElement;
+    expect(editBtn).not.toBeNull();
+    editBtn.click();
+
+    expect(sidebar.isFiltersExpanded()).toBe(true);
+  });
+
+  it('renders active filter summary chips for active categories and walk distances', () => {
+    // Select specific category and walk time
+    filterStore.setAllowedWalkTimes([5, 10], mockFeatures, favoritesStore.getFavorites());
+    filterStore.setNearestOnly(true, mockFeatures, favoritesStore.getFavorites());
+
+    const sidebar = new SidebarComponent(
+      container,
+      filterStore,
+      favoritesStore,
+      { onSelectPOI: () => {} },
+      debugStore,
+      false
+    );
+    sidebar.setData(mockFeatures, mockRegion, []);
+
+    const summaryBar = container.querySelector('#active-filter-summary-bar');
+    expect(summaryBar).not.toBeNull();
+    expect(summaryBar?.textContent).toContain('Nearest Only');
+    expect(summaryBar?.textContent).toContain('≤10 min');
+  });
+
+  it('renders configurable conference subtitle in header', () => {
+    const sidebar = new SidebarComponent(
+      container,
+      filterStore,
+      favoritesStore,
+      { onSelectPOI: () => {} },
+      debugStore,
+      false
+    );
+    sidebar.setData(mockFeatures, mockRegion, []);
+
+    const confNameEl = container.querySelector('.conference-name');
+    expect(confNameEl).not.toBeNull();
+    expect(confNameEl?.textContent).toBe('Sacramento Convention Center');
+  });
+
+  it('renders walking distance isochrones toggle in settings and notifies callback', () => {
+    let isochronesState: boolean | null = null;
+    const sidebar = new SidebarComponent(
+      container,
+      filterStore,
+      favoritesStore,
+      {
+        onSelectPOI: () => {},
+        onIsochronesToggle: (visible) => {
+          isochronesState = visible;
+        },
+      },
+      debugStore,
+      false
+    );
+    sidebar.setData(mockFeatures, mockRegion, []);
+
+    sidebar.setSettingsExpanded(true);
+    const isoChk = container.querySelector('#chk-show-isochrones') as HTMLInputElement;
+    expect(isoChk).not.toBeNull();
+    expect(isoChk.checked).toBe(true);
+
+    isoChk.checked = false;
+    isoChk.dispatchEvent(new Event('change'));
+
+    expect(isochronesState).toBe(false);
+    expect(sidebar.getShowIsochrones()).toBe(false);
+    expect(window.localStorage.getItem('cw_show_isochrones')).toBe('false');
+  });
 });

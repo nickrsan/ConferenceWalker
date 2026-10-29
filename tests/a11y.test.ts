@@ -104,8 +104,10 @@ describe('Accessibility & Keyboard Navigation (a11y)', () => {
 
     // Switch tab
     sidebar.setActiveTab('favorites');
-    expect(exploreTab.getAttribute('aria-selected')).toBe('false');
-    expect(favoritesTab.getAttribute('aria-selected')).toBe('true');
+    const updatedExploreTab = sidebarContainer.querySelector('#tab-explore') as HTMLElement;
+    const updatedFavoritesTab = sidebarContainer.querySelector('#tab-favorites') as HTMLElement;
+    expect(updatedExploreTab.getAttribute('aria-selected')).toBe('false');
+    expect(updatedFavoritesTab.getAttribute('aria-selected')).toBe('true');
   });
 
   it('supports keyboard navigation (Enter and Space) on POI list items', () => {
@@ -195,5 +197,37 @@ describe('Accessibility & Keyboard Navigation (a11y)', () => {
     sidebar.setSettingsExpanded(true);
     const basemapSelect = sidebarContainer.querySelector('#select-basemap-style') as HTMLSelectElement;
     expect(basemapSelect.getAttribute('aria-label')).toBe('Select Basemap Style');
+  });
+
+  it('provides accessible ARIA attributes and keyboard semantics for sidebar resizer and filter summary bar', () => {
+    const sidebar = new SidebarComponent(
+      sidebarContainer,
+      filterStore,
+      favoritesStore,
+      { onSelectPOI: () => {} },
+      debugStore,
+      false
+    );
+    sidebar.setData(samplePOIs, mockRegion, []);
+
+    // Resizer handle accessibility
+    const resizer = sidebarContainer.querySelector('#sidebar-resizer') as HTMLElement;
+    expect(resizer).not.toBeNull();
+    expect(resizer.getAttribute('role')).toBe('separator');
+    expect(resizer.getAttribute('aria-orientation')).toBe('vertical');
+    expect(resizer.getAttribute('aria-label')).toBe('Resize sidebar');
+    expect(resizer.getAttribute('tabindex')).toBe('0');
+    expect(resizer.getAttribute('aria-valuenow')).toBe('400');
+    expect(resizer.getAttribute('aria-valuemin')).toBe('300');
+    expect(resizer.getAttribute('aria-valuemax')).toBe('700');
+
+    // Filter summary bar accessibility
+    const summaryBar = sidebarContainer.querySelector('#active-filter-summary-bar') as HTMLElement;
+    expect(summaryBar).not.toBeNull();
+    expect(summaryBar.getAttribute('role')).toBe('region');
+    expect(summaryBar.getAttribute('aria-label')).toBe('Active filter summary');
+
+    const editBtn = sidebarContainer.querySelector('#btn-edit-filters-prominent') as HTMLButtonElement;
+    expect(editBtn.getAttribute('aria-label')).toBe('Edit filters');
   });
 });

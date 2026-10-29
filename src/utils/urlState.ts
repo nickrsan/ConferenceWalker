@@ -19,6 +19,7 @@ export interface ParsedUrlState {
   nearestOnly: boolean | null;
   excludeOvertureOnly: boolean | null;
   basemapStyle: BasemapStyleKey | null;
+  showIsochrones: boolean | null;
 }
 
 export interface UrlSyncOptions {
@@ -26,6 +27,7 @@ export interface UrlSyncOptions {
   selectedPoiId: string | null;
   activeTab: 'explore' | 'favorites';
   basemapStyle?: BasemapStyleKey;
+  showIsochrones?: boolean;
 }
 
 /**
@@ -129,6 +131,13 @@ export function parseUrlState(searchString?: string): ParsedUrlState {
     basemapStyle = basemapParam;
   }
 
+  // Isochrones Visibility
+  let showIsochrones: boolean | null = null;
+  if (params.has('isochrones') || params.has('show_isochrones')) {
+    const val = params.get('isochrones') || params.get('show_isochrones');
+    showIsochrones = val === 'true' || val === '1';
+  }
+
   return {
     poiId,
     activeTab,
@@ -141,6 +150,7 @@ export function parseUrlState(searchString?: string): ParsedUrlState {
     nearestOnly,
     excludeOvertureOnly,
     basemapStyle,
+    showIsochrones,
   };
 }
 
@@ -241,6 +251,16 @@ export function buildQueryString(options: UrlSyncOptions, existingSearch?: strin
   } else {
     params.delete('basemap');
     params.delete('map_style');
+  }
+
+  // Isochrones visibility
+  if (options.showIsochrones !== undefined) {
+    if (!options.showIsochrones) {
+      params.set('isochrones', 'false');
+    } else {
+      params.delete('isochrones');
+      params.delete('show_isochrones');
+    }
   }
 
   const result = params.toString();

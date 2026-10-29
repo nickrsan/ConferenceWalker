@@ -6,6 +6,7 @@
 
 import maplibregl, { Map as MapLibreMap, Popup, Marker } from 'maplibre-gl';
 import { POICategory, CATEGORY_META, POIFeature, POIFeatureCollection, RegionMetadata } from '../types/poi';
+import { APP_CONFIG } from '../config';
 import {
   DEFAULT_MAP_STYLE,
   DEFAULT_ZOOM,
@@ -32,6 +33,7 @@ export class MapManager {
   private selectedPoiId: string | null = null;
   private favoriteIds: Set<string> = new Set();
   private isLoaded = false;
+  private isochronesVisible = true;
   private activeFilter: any[] | null = null;
   private currentStyleKey: BasemapStyleKey = 'positron';
   private events: MapManagerEvents = {};
@@ -159,8 +161,40 @@ export class MapManager {
       });
     }
 
+    // Apply visibility configuration to isochrone layers
+    this.updateIsochronesLayerVisibility();
+
     // Add or update conference center pin
     this.renderConferenceMarker(region.center, region.name);
+  }
+
+  /**
+   * Toggles visibility of walking distance isochrone layers on the map.
+   */
+  public setIsochronesVisible(visible: boolean): void {
+    this.isochronesVisible = visible;
+    this.updateIsochronesLayerVisibility();
+  }
+
+  /**
+   * Returns whether isochrone layers are currently configured as visible.
+   */
+  public getIsochronesVisible(): boolean {
+    return this.isochronesVisible;
+  }
+
+  /**
+   * Applies the current isochrone visibility state to all MapLibre isochrone layers.
+   */
+  private updateIsochronesLayerVisibility(): void {
+    if (!this.isLoaded) return;
+    const visibility = this.isochronesVisible ? 'visible' : 'none';
+    const isochroneLayers = ['isochrones-fill', 'isochrones-line', 'isochrones-labels'];
+    for (const layerId of isochroneLayers) {
+      if (this.map.getLayer(layerId)) {
+        this.map.setLayoutProperty(layerId, 'visibility', visibility);
+      }
+    }
   }
 
   /**
@@ -171,14 +205,17 @@ export class MapManager {
       this.conferenceMarker.remove();
     }
 
+    const title = APP_CONFIG.conferencePinTitle || `Conference Center: ${name}`;
+    const label = APP_CONFIG.conferencePinLabel || name.split(',')[0];
+
     const markerEl = document.createElement('div');
     markerEl.className = 'conference-center-pin';
     markerEl.setAttribute('role', 'button');
-    markerEl.setAttribute('title', `Conference Center: ${name}`);
+    markerEl.setAttribute('title', title);
     markerEl.innerHTML = `
       <div class="pin-halo"></div>
       <div class="pin-core">📍</div>
-      <div class="pin-label">${name.split(',')[0]}</div>
+      <div class="pin-label">${label}</div>
     `;
 
     this.conferenceMarker = new maplibregl.Marker({ element: markerEl, anchor: 'bottom' })

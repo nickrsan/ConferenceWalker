@@ -98,4 +98,44 @@ describe('urlState utility', () => {
     expect(parsed.searchQuery).toBe('station');
     expect(parsed.nearestOnly).toBeNull();
   });
+
+  it('parses and serializes isochrone visibility parameter', () => {
+    // Parsing isochrones=false
+    const parsedFalse = parseUrlState('?isochrones=false');
+    expect(parsedFalse.showIsochrones).toBe(false);
+
+    // Parsing isochrones=true
+    const parsedTrue = parseUrlState('?isochrones=true');
+    expect(parsedTrue.showIsochrones).toBe(true);
+
+    const filterState: FilterState = {
+      categories: new Set(['hotel']),
+      allowedWalkTimes: new Set([10]),
+      openNowOnly: false,
+      includeUnknownHours: true,
+      selectedCuisines: new Set([]),
+      searchQuery: '',
+      favoritesOnly: false,
+      excludeOvertureOnly: false,
+      nearestOnly: false,
+    };
+
+    // Serializing showIsochrones: false
+    const qsFalse = buildQueryString({
+      filterState,
+      selectedPoiId: null,
+      activeTab: 'explore',
+      showIsochrones: false,
+    });
+    expect(qsFalse).toContain('isochrones=false');
+
+    // Serializing showIsochrones: true (omits parameter as default)
+    const qsTrue = buildQueryString({
+      filterState,
+      selectedPoiId: null,
+      activeTab: 'explore',
+      showIsochrones: true,
+    });
+    expect(qsTrue).not.toContain('isochrones');
+  });
 });
