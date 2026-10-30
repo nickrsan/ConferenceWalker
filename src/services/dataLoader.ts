@@ -98,6 +98,9 @@ export function parseAndValidatePOIs(raw: unknown): POIFeatureCollection {
       sources,
       osm_id: rawProps.osm_id ? String(rawProps.osm_id) : null,
       overture_id: rawProps.overture_id ? String(rawProps.overture_id) : null,
+      reservation_url: rawProps.reservation_url ? String(rawProps.reservation_url).trim() : null,
+      order_url: rawProps.order_url ? String(rawProps.order_url).trim() : null,
+      description: rawProps.description ? String(rawProps.description).trim() : null,
     };
 
     validFeatures.push({

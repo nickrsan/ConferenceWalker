@@ -139,10 +139,37 @@ describe('mapStyles', () => {
   });
 
   it('defines valid icon size multipliers for all presets', () => {
-    expect(ICON_SIZE_MULTIPLIERS.small).toBe(0.75);
-    expect(ICON_SIZE_MULTIPLIERS.medium).toBe(1.0);
-    expect(ICON_SIZE_MULTIPLIERS.large).toBe(1.3);
-    expect(ICON_SIZE_MULTIPLIERS['extra-large']).toBe(1.65);
+    expect(ICON_SIZE_MULTIPLIERS.small).toBe(0.9);
+    expect(ICON_SIZE_MULTIPLIERS.medium).toBe(1.2);
+    expect(ICON_SIZE_MULTIPLIERS.large).toBe(1.55);
+    expect(ICON_SIZE_MULTIPLIERS['extra-large']).toBe(1.95);
+  });
+
+  it('ensures all 10 category badge colors meet WCAG AA contrast against white glyphs (>= 4.5:1)', () => {
+    function srgbToLin(c: number): number {
+      const norm = c / 255;
+      return norm <= 0.04045 ? norm / 12.92 : Math.pow((norm + 0.055) / 1.055, 2.4);
+    }
+    function luminance(hex: string): number {
+      const clean = hex.replace('#', '');
+      const r = parseInt(clean.substring(0, 2), 16);
+      const g = parseInt(clean.substring(2, 4), 16);
+      const b = parseInt(clean.substring(4, 6), 16);
+      return 0.2126 * srgbToLin(r) + 0.7152 * srgbToLin(g) + 0.0722 * srgbToLin(b);
+    }
+    function contrastRatio(hex1: string, hex2: string): number {
+      const l1 = luminance(hex1);
+      const l2 = luminance(hex2);
+      const lighter = Math.max(l1, l2);
+      const darker = Math.min(l1, l2);
+      return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    for (const cat of ALL_CATEGORIES) {
+      const color = CATEGORY_META[cat].color;
+      const ratio = contrastRatio(color, '#ffffff');
+      expect(ratio).toBeGreaterThanOrEqual(4.5);
+    }
   });
 
   it('supports MapManager icon size state updates and layer property configuration', () => {
@@ -321,5 +348,78 @@ describe('mapStyles', () => {
     expect(mockMapInstance.setLayoutProperty).toHaveBeenCalledWith('isochrones-fill', 'visibility', 'visible');
     expect(mockMapInstance.setLayoutProperty).toHaveBeenCalledWith('isochrones-line', 'visibility', 'visible');
     expect(mockMapInstance.setLayoutProperty).toHaveBeenCalledWith('isochrones-labels', 'visibility', 'visible');
+  });
+
+  it('restores POIs, isochrones, and active filters when switching basemap styles', async () => {
+    const container = document.createElement('div');
+    let styledataHandler: (() => void) | null = null;
+
+    const mockMapInstance: any = {
+      on: vi.fn((event: string, handler: any) => {
+        if (event === 'styledata') {
+          styledataHandler = handler;
+        }
+      }),
+      once: vi.fn(),
+      off: vi.fn(),
+      setStyle: vi.fn(() => {
+        // Trigger styledata callback
+        if (styledataHandler) {
+          styledataHandler();
+        }
+      }),
+      isStyleLoaded: vi.fn(() => true),
+      hasImage: vi.fn(() => true),
+      addImage: vi.fn(),
+      getLayer: vi.fn(() => true),
+      getSource: vi.fn(() => false),
+      addSource: vi.fn(),
+      addLayer: vi.fn(),
+      setFilter: vi.fn(),
+      setPaintProperty: vi.fn(),
+      setLayoutProperty: vi.fn(),
+    };
+
+    const manager = new MapManager(container);
+    (manager as any).map = mockMapInstance;
+    (manager as any).isLoaded = true;
+
+    const renderPOIsSpy = vi.spyOn(manager, 'renderPOIs');
+    const renderIsochronesSpy = vi.spyOn(manager, 'renderIsochrones');
+    const applyFilterSpy = vi.spyOn(manager, 'applyFilter');
+
+    const samplePOIs: any = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [-121.49, 38.58] },
+          properties: { id: 'poi-1', name: 'Test Coffee', category: 'coffee_tea' },
+        },
+      ],
+    };
+
+    const sampleRegion: any = {
+      name: 'Sacramento',
+      center: [-121.49, 38.58],
+      geojson: { type: 'FeatureCollection', features: [] },
+    };
+
+    manager.renderPOIs(samplePOIs);
+    manager.renderIsochrones(sampleRegion);
+    manager.applyFilter(['==', ['get', 'category'], 'coffee_tea']);
+
+    await manager.setBasemapStyle('bright');
+
+    expect(mockMapInstance.setStyle).toHaveBeenCalledWith(BASEMAP_STYLES.bright.url);
+    expect(renderPOIsSpy).toHaveBeenCalledWith(samplePOIs);
+    expect(renderIsochronesSpy).toHaveBeenCalledWith(sampleRegion);
+    expect(applyFilterSpy).toHaveBeenCalledWith(['==', ['get', 'category'], 'coffee_tea']);
+  });
+
+  it('initializes MapManager with defaultBasemap from APP_CONFIG', () => {
+    const container = document.createElement('div');
+    const manager = new MapManager(container);
+    expect(manager.getBasemapStyle()).toBe('positron');
   });
 });

@@ -55,6 +55,7 @@ describe('dataLoader service', () => {
               sources: ['osm', 'overture'],
               osm_id: '12345',
               overture_id: 'ov_67890',
+              description: 'Artisan roaster with single-origin beans and outdoor patio.',
             },
           },
         ],
@@ -78,6 +79,7 @@ describe('dataLoader service', () => {
       expect(feat.properties.sources).toEqual(['osm', 'overture']);
       expect(feat.properties.osm_id).toBe('12345');
       expect(feat.properties.overture_id).toBe('ov_67890');
+      expect(feat.properties.description).toBe('Artisan roaster with single-origin beans and outdoor patio.');
     });
 
     it('skips features with invalid coordinates or non-point geometry', () => {

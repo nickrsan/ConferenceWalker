@@ -124,7 +124,7 @@ def classify_osm_tags(tags: dict) -> Tuple[Optional[str], List[str]]:
         return CATEGORY_BAR, cuisines
 
     # 3. Restaurants & Dining
-    if amenity in {"restaurant", "fast_food", "food_court"}:
+    if amenity in {"restaurant", "fast_food", "food_court"} or shop in {"bakery"}:
         return CATEGORY_RESTAURANT, cuisines
 
     # 4. Convenience Stores & Pharmacies
@@ -151,11 +151,12 @@ def classify_osm_tags(tags: dict) -> Tuple[Optional[str], List[str]]:
     # 8. Local Attractions & Art
     if (
         tourism in {"museum", "gallery", "artwork", "attraction", "viewpoint", "theme_park", "zoo", "aquarium"}
-        or amenity in {"arts_centre", "theatre", "cinema", "planetarium", "gallery", "public_art"}
+        or amenity in {"arts_centre", "theatre", "cinema", "planetarium", "gallery", "public_art", "library", "public_bookcase"}
         or historic in {"monument", "memorial", "castle", "ruins", "archaeological_site"}
         or artwork_type in {"mural", "wall_painting", "street_art", "sculpture", "statue", "installation", "mosaic", "graffiti", "painting"}
         or man_made in {"artwork", "street_art"}
         or wall in {"mural", "artwork"}
+        or shop in {"books"}
     ):
         return CATEGORY_ATTRACTION_ART, []
 
@@ -168,7 +169,7 @@ def classify_osm_tags(tags: dict) -> Tuple[Optional[str], List[str]]:
 
     # 10. Grocery Stores & Markets
     if shop in {
-        "supermarket", "grocery", "greengrocer", "bakery", "deli",
+        "supermarket", "grocery", "greengrocer", "deli",
         "butcher", "seafood", "farm", "general", "cheese", "spices"
     }:
         return CATEGORY_GROCERY, cuisines
@@ -255,7 +256,8 @@ def classify_overture_place(primary_category: Optional[str], alternate_categorie
         "museum", "art_gallery", "art_center", "performing_arts_theater",
         "historic_site", "tourist_attraction", "monument_and_memorial",
         "sculpture", "cultural_center", "movie_theater", "cinema",
-        "botanical_garden", "aquarium", "planetarium",
+        "botanical_garden", "aquarium", "planetarium", "bookstore",
+        "library"
         #"landmark_and_historical_building"
     ]):
         return CATEGORY_ATTRACTION_ART, []

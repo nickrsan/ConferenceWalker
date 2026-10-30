@@ -5,6 +5,7 @@
  */
 
 import { POICategory, ALL_CATEGORIES, DEFAULT_CATEGORIES, POIIconSize } from './types/poi';
+import { BasemapStyleKey } from './map/mapStyles';
 
 export interface ConferenceWalkerConfig {
   /**
@@ -75,6 +76,13 @@ export interface ConferenceWalkerConfig {
    * Defaults to 'medium'.
    */
   iconSize?: POIIconSize;
+
+  /**
+   * Default vector basemap style on startup ('positron', 'bright', 'liberty').
+   * Can be overridden by the user in Settings or via URL query parameter (?basemap=...).
+   * Defaults to 'positron'.
+   */
+  defaultBasemap?: BasemapStyleKey;
 }
 
 /**
@@ -92,6 +100,7 @@ export const APP_CONFIG: ConferenceWalkerConfig = {
   startWithSavedOnlyByDefault: false,
   showIsochronesByDefault: true,
   iconSize: 'extra-large',
+  defaultBasemap: 'positron',
   conferencePinLabel: "Sheraton Grand - Conference Venue",
   conferenceSubtitle: "FOSS4GNA 2026 Sacramento",
   welcomeHtml: "<p>Looking for coffee? A nice park to wander? A place to meet a friend? Find all of it in walking distance with the map and filters</p>",

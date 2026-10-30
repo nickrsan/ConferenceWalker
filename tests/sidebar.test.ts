@@ -4,6 +4,7 @@ import { FilterStore } from '../src/state/filterState';
 import { FavoritesStore } from '../src/state/favorites';
 import { DebugStore } from '../src/state/debugState';
 import { POIFeature, RegionMetadata } from '../src/types/poi';
+import { APP_CONFIG } from '../src/config';
 
 describe('SidebarComponent', () => {
   let container: HTMLElement;
@@ -558,7 +559,8 @@ describe('SidebarComponent', () => {
 
     const confNameEl = container.querySelector('.conference-name');
     expect(confNameEl).not.toBeNull();
-    expect(confNameEl?.textContent).toBe('Sacramento Convention Center');
+    const expectedTitle = APP_CONFIG.conferenceSubtitle || mockRegion.name;
+    expect(confNameEl?.textContent).toBe(expectedTitle);
   });
 
   it('renders walking distance isochrones toggle in settings and notifies callback', () => {

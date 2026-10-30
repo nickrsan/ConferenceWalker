@@ -3,6 +3,7 @@ import {
   buildGraphHopperWalkingUrl,
   buildMobileDirectionsIntent,
   buildUniversalMapsUrl,
+  buildCartesAppUrl,
   calculateDistanceMeters,
   formatDistance,
 } from '../src/utils/directions';
@@ -38,6 +39,11 @@ describe('Directions and Navigation Links (Scenario 7)', () => {
     expect(url.startsWith('https://www.google.com/maps/search/')).toBe(true);
     expect(url).toContain('38.58');
     expect(url).toContain('-121.492');
+  });
+
+  it('builds Cartes.app deep link URL with zoom and coordinates', () => {
+    const cartesUrl = buildCartesAppUrl(targetPoiCoords, 17);
+    expect(cartesUrl).toBe('https://cartes.app/#17/38.580000/-121.492000');
   });
 
   it('calculates geographic distance in meters using Haversine formula', () => {

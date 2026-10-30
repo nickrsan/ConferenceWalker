@@ -354,6 +354,26 @@ class TestDeduplication:
         assert merged_2["osm_id"] == "90498377"
         assert merged_2["overture_id"] == "08f2e9"
 
+    def test_description_preservation_in_deduplication(self):
+        osm_poi = {
+            "id": "osm_1",
+            "name": "Capitol Books",
+            "category": "attraction_art",
+            "coordinates": [-121.490, 38.579],
+            "description": "Independent local bookstore specializing in California history and literature.",
+            "sources": ["osm"],
+        }
+        overture_poi = {
+            "id": "ov_1",
+            "name": "Capitol Books",
+            "category": "attraction_art",
+            "coordinates": [-121.4901, 38.5791],
+            "description": None,
+            "sources": ["overture"],
+        }
+        merged = merge_two_pois(osm_poi, overture_poi)
+        assert merged["description"] == "Independent local bookstore specializing in California history and literature."
+
     def test_prevent_false_merge_of_chain_branches(self):
         # Two Starbucks separated by 200m should NOT merge
         branch1 = {

@@ -271,6 +271,10 @@ def merge_two_pois(poi_a: Dict[str, Any], poi_b: Dict[str, Any]) -> Dict[str, An
     if not merged.get("order_url") and secondary.get("order_url"):
         merged["order_url"] = secondary["order_url"]
 
+    # Description: OSM description takes precedence, fallback to secondary
+    if not merged.get("description") and secondary.get("description"):
+        merged["description"] = secondary["description"]
+
     return merged
 
 

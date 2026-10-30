@@ -133,6 +133,15 @@ export interface ConferenceWalkerConfig {
   filtersExpandedByDefault: boolean;
   overtureMinConfidence: number;
   excludeOvertureOnlyByDefault: boolean;
+  defaultSavedPois?: string[];
+  startWithSavedOnlyByDefault?: boolean;
+  showIsochronesByDefault?: boolean;
+  iconSize?: POIIconSize;
+  defaultBasemap?: BasemapStyleKey;
+  conferenceSubtitle?: string;
+  conferencePinLabel?: string;
+  conferencePinTitle?: string;
+  welcomeHtml?: string;
 }
 
 export const APP_CONFIG: ConferenceWalkerConfig = {
@@ -174,6 +183,7 @@ export interface POIProperties {
   overture_id: string | null;
   reservation_url?: string | null;
   order_url?: string | null;
+  description?: string | null;
 }
 
 export interface FilterState {
@@ -215,7 +225,7 @@ export interface FilterState {
   - **Outlines (`isochrones-line`)**: Crisp 2.5px boundary strokes with 85% opacity clearly delineating walking time boundaries.
   - **Labels (`isochrones-labels`)**: Symbol layer explicitly referencing `'Noto Sans Regular'` to prevent glyph loading failures on OpenFreeMap vector styles.
   - **Layer Stacking**: Isochrone layers are automatically inserted underneath POI marker pins (`pois-favorites-halo`, `pois-circle`, `pois-symbol`, `pois-selection-ring`) and hover tooltips to ensure venue markers and text remain unhampered.
-- **Vector Icon Badges & Dynamic Sizing**: Pre-rasterizes crisp category SVG badges at 2x pixel ratio for high-DPI displays. Supports dynamic icon scaling via `setIconSize(size: POIIconSize | number)` with predefined presets (`small`: 0.75x, `medium`: 1.0x, `large`: 1.3x, `extra-large`: 1.65x) scaling vector symbol badges, circle backings, favorites halos, and selection rings in real time.
+- **Vector Icon Badges & Dynamic Sizing**: Pre-rasterizes crisp category SVG badges at 2x pixel ratio for high-DPI displays. All 10 category colors meet WCAG AA contrast standards (>= 4.5:1 ratio against white glyphs). Supports dynamic icon scaling via `setIconSize(size: POIIconSize | number)` with predefined presets (`small`: 0.9x, `medium`: 1.2x, `large`: 1.55x, `extra-large`: 1.95x) scaling vector symbol badges, circle backings, favorites halos, and selection rings in real time.
 - **POI Name Labels**: Renders on-map venue names directly beneath category symbols with text halos and automatic collision-avoidance layout.
 - **Bidirectional Selection**: Synchronizes map marker selections with sidebar card highlights and viewport camera centering.
 
@@ -231,6 +241,11 @@ export interface FilterState {
   buildGraphHopperWalkingUrl(conferenceCoords, poiCoords)
   ```
   Generates URLs: `https://graphhopper.com/maps/?point=LAT%2CLON&point=LAT%2CLON&vehicle=foot`
+- **Cartes.app Navigation Link**:
+  ```typescript
+  buildCartesAppUrl(poiCoords, zoom = 17)
+  ```
+  Generates deep links: `https://cartes.app/#17/LAT/LON` to view POI locations on the open-source Cartes.app web map.
 - **Native Device Intent**:
   ```typescript
   buildMobileDirectionsIntent(poiCoords, venueName)

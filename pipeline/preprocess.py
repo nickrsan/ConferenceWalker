@@ -246,6 +246,15 @@ def extract_osm_pois(
             res_url = extract_reservation_url(props)
             ord_url = extract_order_url(props)
 
+            # POI Description: extract from description, description:en, note, or comment tags
+            raw_desc = (
+                props.get("description")
+                or props.get("description:en")
+                or props.get("note")
+                or props.get("comment")
+            )
+            description = str(raw_desc).strip() if raw_desc else None
+
             # OpenStreetMap ID: Extract genuine OSM ID (node ID or way ID) rather than internal numbering
             raw_osm_id = props.get("@id") or props.get("id") or feat.get("id")
             if raw_osm_id is not None:
@@ -275,6 +284,7 @@ def extract_osm_pois(
                 "overture_id": None,
                 "reservation_url": res_url,
                 "order_url": ord_url,
+                "description": description,
             }
             osm_pois.append(poi)
 
@@ -490,6 +500,7 @@ def convert_pois_to_geojson(pois: List[Dict[str, Any]]) -> Dict[str, Any]:
             "overture_id": poi.get("overture_id"),
             "reservation_url": poi.get("reservation_url"),
             "order_url": poi.get("order_url"),
+            "description": poi.get("description"),
         }
         features.append({
             "type": "Feature",

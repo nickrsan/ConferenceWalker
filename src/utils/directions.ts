@@ -62,6 +62,19 @@ export function buildUniversalMapsUrl(
 }
 
 /**
+ * Constructs a deep link to view a POI location directly on Cartes.app (open-source web map).
+ * Format: https://cartes.app/#<zoom>/<lat>/<lon>
+ */
+export function buildCartesAppUrl(
+  poiCoords: [number, number],
+  zoom = 17
+): string {
+  const lon = Number(poiCoords[0]);
+  const lat = Number(poiCoords[1]);
+  return `https://cartes.app/#${zoom}/${lat.toFixed(6)}/${lon.toFixed(6)}`;
+}
+
+/**
  * Calculates the great-circle distance between two geographic coordinates [lon, lat] in meters
  * using the Haversine formula.
  */

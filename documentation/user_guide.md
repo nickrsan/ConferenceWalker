@@ -53,11 +53,12 @@ ConferenceWalker includes a dedicated **Settings Panel** accessed via the **Sett
    - Click **Done** or the **✕** close button (or tap **Settings** or switch directly to the **Explore** or **Saved** tabs) when finished to return immediately to your venue results.
 
 2. **Map Display & Icons**:
-   - **Map Icon Size**: Choose between **Small (Compact)** (0.75x), **Medium (Default)** (1.0x), **Large** (1.3x), and **Extra Large** (1.65x) to scale category icons, circle backings, favorites halos, and selection rings according to your visual preference or screen resolution.
+   - **Map Icon Size**: Choose between **Small (Compact)** (0.9x), **Medium (Default)** (1.2x), **Large** (1.55x), and **Extra Large** (1.95x) to scale category icons, circle backings, favorites halos, and selection rings according to your visual preference or screen resolution.
+   - **High-Contrast Badges**: All 10 category marker badges are engineered to meet WCAG AA contrast standards (≥ 4.5:1 ratio) against white glyphs for high legibility across light and dark map themes.
    - **Walking Distance Zones (Isochrones)**: Controls whether concentric walking distance zones (5, 10, and 15-minute colored walkshed fills, boundaries, and labels) appear on the map. Turn off distance zones for a cleaner map view focusing solely on venue pins and street labels, or turn it on to see walking reachability boundaries at a glance. State is saved in `localStorage` and synchronized via URL query parameters (`?isochrones=false`).
 
 3. **Basemap Styles**:
-   - Switch between **Positron (Light)**, **Bright**, and **Liberty** OpenFreeMap vector styles without losing active filters or venue pins.
+   - Switch between **Positron (Light)**, **Bright**, and **Liberty** OpenFreeMap vector styles without losing active filters, walking isochrones, selection rings, or venue pins. Conference organizers can also configure the default basemap on launch in `src/config.ts`.
 
 4. **Data Sources — Disable Overture-Only Data**:
    - **What it does**: Allows you to exclude places that are only sourced from Overture Maps.
@@ -142,6 +143,7 @@ Click any venue marker on the map or its card in the sidebar list to open the **
 - **Street Address**: Formatted physical location.
 - **Tappable Phone Number**: Click on mobile to dial immediately.
 - **Clickable Website Link**: Opens the venue's official website or menu in a new tab.
+- **Venue Description (📝)**: Contextual notes or descriptions extracted from OpenStreetMap tags or organizer metadata.
 - **Weekly Operating Hours Schedule**: When parsed with standard schedules, displays a clean day-by-day breakdown (one day per line, localized weekday names) with the **current weekday highlighted in bold**.
 - **Cuisine Tags**: Listed food specialties.
 
@@ -150,6 +152,7 @@ Click any venue marker on the map or its card in the sidebar list to open the **
 - **📅 Reserve Table Online**: Direct link to the venue's online reservation platform (if available in source data).
 - **🛍️ Order Online**: Direct link to online takeaway or delivery ordering (if available in source data).
 - **🚶 Walking Directions**: Opens **GraphHopper Maps** with a turnkey walking route directly from the conference venue to the POI.
+- **🗺️ Open in Cartes.app**: Opens the venue location directly on **Cartes.app** (open-source web map).
 - **📱 Device Maps**: On mobile phones, opens your device's native navigation app (Google Maps, Apple Maps, or default mapping application).
 
 ---

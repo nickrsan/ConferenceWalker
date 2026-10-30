@@ -41,16 +41,16 @@ export const DEFAULT_CATEGORIES: POICategory[] = [
 ];
 
 export const CATEGORY_META: Record<POICategory, { label: string; icon: string; color: string }> = {
-  convenience_pharmacy: { label: 'Convenience / Pharmacy', icon: '💊', color: '#e7298a' },
-  restaurant: { label: 'Restaurants', icon: '🍽️', color: '#e41a1c' },
-  parking: { label: 'Parking', icon: '🅿️', color: '#999999' },
-  transit: { label: 'Transit Locations', icon: '🚆', color: '#377eb8' },
-  coffee_tea: { label: 'Coffee / Tea', icon: '☕', color: '#8c510a' },
-  bar: { label: 'Bars & Pubs', icon: '🍸', color: '#984ea3' },
-  hotel: { label: 'Hotels', icon: '🏨', color: '#ff7f00' },
-  attraction_art: { label: 'Attractions & Art', icon: '🎨', color: '#ffff33' },
-  park_outdoors: { label: 'Parks & Outdoors', icon: '🌳', color: '#4daf4a' },
-  grocery: { label: 'Grocery Stores', icon: '🛒', color: '#1b9e77' },
+  convenience_pharmacy: { label: 'Convenience / Pharmacy', icon: '💊', color: '#be185d' },
+  restaurant: { label: 'Restaurants', icon: '🍽️', color: '#b91c1c' },
+  parking: { label: 'Parking', icon: '🅿️', color: '#475569' },
+  transit: { label: 'Transit Locations', icon: '🚆', color: '#1d4ed8' },
+  coffee_tea: { label: 'Coffee / Tea', icon: '☕', color: '#78350f' },
+  bar: { label: 'Bars & Pubs', icon: '🍸', color: '#6b21a8' },
+  hotel: { label: 'Hotels', icon: '🏨', color: '#c2410c' },
+  attraction_art: { label: 'Attractions & Art', icon: '🎨', color: '#854d0e' },
+  park_outdoors: { label: 'Parks & Outdoors', icon: '🌳', color: '#15803d' },
+  grocery: { label: 'Grocery Stores', icon: '🛒', color: '#0f766e' },
 };
 
 export interface POIProperties {
@@ -68,6 +68,7 @@ export interface POIProperties {
   overture_id: string | null;
   reservation_url?: string | null;
   order_url?: string | null;
+  description?: string | null;
 }
 
 export interface POIFeature {

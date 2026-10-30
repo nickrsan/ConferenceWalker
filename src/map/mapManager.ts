@@ -20,10 +20,10 @@ import {
 } from './mapStyles';
 
 export const ICON_SIZE_MULTIPLIERS: Record<POIIconSize, number> = {
-  small: 0.75,
-  medium: 1.0,
-  large: 1.3,
-  'extra-large': 1.65,
+  small: 0.9,
+  medium: 1.2,
+  large: 1.55,
+  'extra-large': 1.95,
 };
 
 export interface MapManagerEvents {
@@ -43,18 +43,24 @@ export class MapManager {
   private isochronesVisible = true;
   private currentIconSize: POIIconSize = APP_CONFIG.iconSize || 'medium';
   private activeFilter: any[] | null = null;
-  private currentStyleKey: BasemapStyleKey = 'positron';
+  private currentStyleKey: BasemapStyleKey = APP_CONFIG.defaultBasemap || 'positron';
   private events: MapManagerEvents = {};
 
   constructor(container: string | HTMLElement, region?: RegionMetadata, events?: MapManagerEvents) {
     this.region = region || null;
     this.events = events || {};
 
+    const initialStyleKey: BasemapStyleKey =
+      APP_CONFIG.defaultBasemap && BASEMAP_STYLES[APP_CONFIG.defaultBasemap]
+        ? APP_CONFIG.defaultBasemap
+        : 'positron';
+    this.currentStyleKey = initialStyleKey;
+
     const center = this.region?.center || SACRAMENTO_FALLBACK_CENTER;
 
     this.map = new maplibregl.Map({
       container,
-      style: DEFAULT_MAP_STYLE,
+      style: BASEMAP_STYLES[initialStyleKey].url,
       center,
       zoom: DEFAULT_ZOOM,
       attributionControl: { compact: true },
@@ -442,10 +448,10 @@ export class MapManager {
   private buildIconSizeExpression(mult: number): any {
     return [
       'interpolate', ['linear'], ['zoom'],
-      12, +(0.42 * mult).toFixed(3),
-      14, +(0.55 * mult).toFixed(3),
-      16, +(0.70 * mult).toFixed(3),
-      18, +(0.88 * mult).toFixed(3),
+      12, +(0.48 * mult).toFixed(3),
+      14, +(0.62 * mult).toFixed(3),
+      16, +(0.78 * mult).toFixed(3),
+      18, +(0.98 * mult).toFixed(3),
     ];
   }
 
@@ -455,9 +461,9 @@ export class MapManager {
   private buildCircleRadiusExpression(mult: number): any {
     return [
       'interpolate', ['linear'], ['zoom'],
-      12, +(4 * mult).toFixed(2),
-      15, +(6 * mult).toFixed(2),
-      18, +(8 * mult).toFixed(2),
+      12, +(5 * mult).toFixed(2),
+      15, +(7.5 * mult).toFixed(2),
+      18, +(10 * mult).toFixed(2),
     ];
   }
 
@@ -467,9 +473,9 @@ export class MapManager {
   private buildHaloRadiusExpression(mult: number): any {
     return [
       'interpolate', ['linear'], ['zoom'],
-      12, +(11 * mult).toFixed(2),
-      15, +(16 * mult).toFixed(2),
-      18, +(22 * mult).toFixed(2),
+      12, +(13 * mult).toFixed(2),
+      15, +(18.5 * mult).toFixed(2),
+      18, +(25 * mult).toFixed(2),
     ];
   }
 
@@ -515,7 +521,15 @@ export class MapManager {
     const styleUrl = BASEMAP_STYLES[styleKey].url;
 
     return new Promise<void>((resolve) => {
-      this.map.once('style.load', async () => {
+      let resolved = false;
+
+      const reapplyLayers = async () => {
+        if (resolved) return;
+        resolved = true;
+        this.map.off('styledata', handleStyleData);
+        this.map.off('style.load', handleStyleData);
+        this.isLoaded = true;
+
         await registerCategoryImages(this.map);
         if (this.region) {
           this.renderIsochrones(this.region);
@@ -533,7 +547,22 @@ export class MapManager {
           this.updateFavorites(this.favoriteIds);
         }
         resolve();
-      });
+      };
+
+      const handleStyleData = () => {
+        if (typeof this.map.isStyleLoaded === 'function') {
+          if (this.map.isStyleLoaded()) {
+            reapplyLayers();
+          }
+        } else {
+          reapplyLayers();
+        }
+      };
+
+      // In MapLibre GL, setStyle fires 'styledata' events when new style is applied;
+      // also attach 'style.load' for test mock / alternate environment compatibility.
+      this.map.on('styledata', handleStyleData);
+      this.map.once('style.load', handleStyleData);
 
       this.map.setStyle(styleUrl);
     });

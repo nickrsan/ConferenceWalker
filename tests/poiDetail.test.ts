@@ -132,4 +132,45 @@ describe('POIDetailComponent', () => {
     expect(container.querySelector('.btn-reservation')).toBeNull();
     expect(container.querySelector('.btn-order')).toBeNull();
   });
+
+  it('renders POI description when present', () => {
+    const featureWithDesc: POIFeature = {
+      ...baseFeature,
+      properties: {
+        ...baseFeature.properties,
+        description: 'Historic downtown grill serving locally sourced California comfort food and craft brews.',
+      },
+    };
+
+    component.show(featureWithDesc);
+
+    const descRow = container.querySelector('.description-row');
+    expect(descRow).not.toBeNull();
+    expect(descRow!.textContent).toContain('Historic downtown grill serving locally sourced California comfort food');
+  });
+
+  it('omits description row when description is absent', () => {
+    const featureWithoutDesc: POIFeature = {
+      ...baseFeature,
+      properties: {
+        ...baseFeature.properties,
+        description: null,
+      },
+    };
+
+    component.show(featureWithoutDesc);
+
+    expect(container.querySelector('.description-row')).toBeNull();
+  });
+
+  it('renders Cartes.app navigation button with correct deep link URL', () => {
+    component.show(baseFeature);
+
+    const cartesBtn = container.querySelector('.btn-cartes') as HTMLAnchorElement | null;
+    expect(cartesBtn).not.toBeNull();
+    expect(cartesBtn!.textContent).toContain('Open in Cartes.app');
+    expect(cartesBtn!.getAttribute('href')).toBe('https://cartes.app/#17/38.580000/-121.490000');
+    expect(cartesBtn!.getAttribute('target')).toBe('_blank');
+    expect(cartesBtn!.getAttribute('rel')).toBe('noopener noreferrer');
+  });
 });

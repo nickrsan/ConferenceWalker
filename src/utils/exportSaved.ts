@@ -16,6 +16,7 @@ export interface SavedPoisExportPayload {
     category: string;
     address: string | null;
     walk_time_minutes: number | null;
+    description?: string | null;
   }>;
 }
 
@@ -57,6 +58,7 @@ export function generateSavedPoisJson(
         category: p.properties.category,
         address: p.properties.address,
         walk_time_minutes: p.properties.walk_time_minutes,
+        description: p.properties.description ?? null,
       }));
   }
 
@@ -91,4 +93,24 @@ export function downloadSavedPoisFile(
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Merges venue attributes (such as descriptions) from an exported saved POIs payload into active POI features.
+ */
+export function mergeExportedVenues(
+  payload: SavedPoisExportPayload,
+  features: POIFeature[]
+): void {
+  if (!payload || !Array.isArray(payload.venues)) return;
+  const venueMap = new Map(payload.venues.map((v) => [v.id, v]));
+
+  for (const feature of features) {
+    const venue = venueMap.get(feature.properties.id);
+    if (venue && venue.description) {
+      if (!feature.properties.description) {
+        feature.properties.description = venue.description;
+      }
+    }
+  }
 }

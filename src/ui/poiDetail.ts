@@ -6,7 +6,7 @@
 
 import { POIFeature, CATEGORY_META } from '../types/poi';
 import { evaluateOpeningHours, getOpeningBadge, parseWeeklySchedule } from '../utils/openingHours';
-import { buildGraphHopperWalkingUrl, buildMobileDirectionsIntent, buildUniversalMapsUrl } from '../utils/directions';
+import { buildGraphHopperWalkingUrl, buildMobileDirectionsIntent, buildUniversalMapsUrl, buildCartesAppUrl } from '../utils/directions';
 import { FavoritesStore } from '../state/favorites';
 import { DebugStore } from '../state/debugState';
 
@@ -104,6 +104,7 @@ export class POIDetailComponent {
     const graphHopperUrl = buildGraphHopperWalkingUrl(this.conferenceCoords, coords);
     const mobileIntentUrl = buildMobileDirectionsIntent(coords, props.name);
     const universalMapsUrl = buildUniversalMapsUrl(coords, props.name);
+    const cartesAppUrl = buildCartesAppUrl(coords);
 
     const walkText = props.walk_time_minutes ? `${props.walk_time_minutes} min walk` : '>15 min walk';
     const weeklySchedule = props.opening_hours ? parseWeeklySchedule(props.opening_hours) : null;
@@ -182,6 +183,19 @@ export class POIDetailComponent {
               ${props.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
               <span class="external-icon" aria-hidden="true">↗</span>
             </a>
+          </div>
+        `
+            : ''
+        }
+
+        ${
+          props.description
+            ? `
+          <div class="detail-row description-row">
+            <span class="row-icon">📝</span>
+            <div class="description-content">
+              <p class="poi-description-text">${props.description}</p>
+            </div>
           </div>
         `
             : ''
@@ -332,6 +346,16 @@ export class POIDetailComponent {
           class="btn-action-directions btn-walking tap-target"
         >
           🚶 Walking Directions
+        </a>
+
+        <a
+          href="${cartesAppUrl}"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn-action-directions btn-cartes tap-target"
+          title="Open location on Cartes.app"
+        >
+          🗺️ Open in Cartes.app ↗
         </a>
 
         <a
