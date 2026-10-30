@@ -28677,35 +28677,6 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -121.4894888,
-          38.5794711
-        ]
-      },
-      "properties": {
-        "id": "osm_13460651073",
-        "name": "Pennisi's Deli",
-        "category": "grocery",
-        "walk_time_minutes": 5,
-        "address": "1237 J St",
-        "phone": "+19164485610",
-        "website": "http://www.pennisisdeli.us/",
-        "opening_hours": null,
-        "cuisines": [],
-        "sources": [
-          "osm",
-          "overture"
-        ],
-        "osm_id": "13460651073",
-        "overture_id": "b9990b92-1980-49a6-8be2-460e1338aa12",
-        "reservation_url": null,
-        "order_url": null
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
           -121.492713,
           38.537996
         ]
