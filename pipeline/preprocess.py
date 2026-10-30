@@ -193,11 +193,15 @@ def extract_osm_pois(
 
             if geom_type == "Point" and len(coords) >= 2:
                 lon, lat = float(coords[0]), float(coords[1])
-            elif geom_type == "Polygon" and coords and coords[0]:
+            elif (geom_type == "Polygon" or geom_type == "MultiPolygon") and coords and coords[0]:
                 # Centroid of polygon exterior ring
-                ring = coords[0]
-                lon = sum(pt[0] for pt in ring) / float(len(ring))
-                lat = sum(pt[1] for pt in ring) / float(len(ring))
+                ring = coords[0][0]
+                try:
+                    lon = sum(pt[0] for pt in ring) / float(len(ring))
+                    lat = sum(pt[1] for pt in ring) / float(len(ring))
+                except TypeError:
+                    lon = ring[0][0]
+                    lat = ring[0][1]
 
             if lon is None or lat is None:
                 continue

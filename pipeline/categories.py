@@ -133,7 +133,7 @@ def classify_osm_tags(tags: dict) -> Tuple[Optional[str], List[str]]:
         return CATEGORY_CONVENIENCE_PHARMACY, cuisines
 
     # 5. Parking
-    if amenity in {"parking", "parking_space", "parking_entrance"} or parking in {'multi-storey'}: #, "bicycle_parking"}:
+    if (amenity in {"parking", "parking_space", "parking_entrance"} and parking is not None and parking not in ("private", "")) or parking in {'multi-storey'}: #, "bicycle_parking"}:
         return CATEGORY_PARKING, []
 
     # 6. Transit Locations
