@@ -101,6 +101,7 @@ def classify_osm_tags(tags: dict) -> Tuple[Optional[str], List[str]]:
         If not in any of the 10 target categories, category_id is None.
     """
     amenity = tags.get("amenity", "").strip().lower()
+    parking = tags.get("parking", "").strip().lower()
     shop = tags.get("shop", "").strip().lower()
     tourism = tags.get("tourism", "").strip().lower()
     leisure = tags.get("leisure", "").strip().lower()
@@ -132,7 +133,7 @@ def classify_osm_tags(tags: dict) -> Tuple[Optional[str], List[str]]:
         return CATEGORY_CONVENIENCE_PHARMACY, cuisines
 
     # 5. Parking
-    if amenity in {"parking", "parking_space", "parking_entrance", "bicycle_parking"}:
+    if amenity in {"parking", "parking_space", "parking_entrance"} or parking in {'multi-storey'}: #, "bicycle_parking"}:
         return CATEGORY_PARKING, []
 
     # 6. Transit Locations
