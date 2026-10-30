@@ -125,7 +125,7 @@ def classify_osm_tags(tags: dict) -> Tuple[Optional[str], List[str]]:
         return CATEGORY_BAR, cuisines
 
     # 3. Restaurants & Dining
-    if amenity in {"restaurant", "fast_food", "food_court"} or shop in {"bakery"}:
+    if amenity in {"restaurant", "fast_food", "food_court"} or shop in {"bakery", "deli"}:
         return CATEGORY_RESTAURANT, cuisines
 
     # 4. Convenience Stores & Pharmacies
@@ -157,7 +157,7 @@ def classify_osm_tags(tags: dict) -> Tuple[Optional[str], List[str]]:
         or artwork_type in {"mural", "wall_painting", "street_art", "sculpture", "statue", "installation", "mosaic", "graffiti", "painting"}
         or man_made in {"artwork", "street_art"}
         or wall in {"mural", "artwork"}
-        or shop in {"books"}
+        or shop in {"books",}
     ):
         return CATEGORY_ATTRACTION_ART, []
 
@@ -170,7 +170,7 @@ def classify_osm_tags(tags: dict) -> Tuple[Optional[str], List[str]]:
 
     # 10. Grocery Stores & Markets
     if shop in {
-        "supermarket", "grocery", "greengrocer", "deli",
+        "supermarket", "grocery", "greengrocer",
         "butcher", "seafood", "farm", "general", "cheese", "spices"
     }:
         return CATEGORY_GROCERY, cuisines
@@ -227,7 +227,7 @@ def classify_overture_place(primary_category: Optional[str], alternate_categorie
             "restaurant", "diner", "bistro", "fast_food", "pizzeria",
             "steakhouse", "sandwich_shop", "noodle_shop", "food_court",
             "taco_truck", "food_truck", "eatery", "creperie", "ramen_restaurant",
-            "sushi_restaurant", "taqueria"
+            "sushi_restaurant", "taqueria", "bakery", "deli"
         ])
         or any(k in cat for k in KNOWN_CUISINES)
     ):
@@ -273,7 +273,7 @@ def classify_overture_place(primary_category: Optional[str], alternate_categorie
     # 10. Grocery Stores & Markets
     if any(k in cat for k in [
         "grocery", "supermarket", "food_market", "produce_market",
-        "bakery", "butcher_shop", "greengrocer", "deli",
+         "butcher_shop", "greengrocer", "deli",
         "fish_and_seafood_market"
     ]):
         return CATEGORY_GROCERY, sorted(list(cuisines))
