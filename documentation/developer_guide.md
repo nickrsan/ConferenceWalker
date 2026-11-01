@@ -223,8 +223,9 @@ export interface FilterState {
 - **Walking Isochrone Rendering Pipeline**:
   - **Fills (`isochrones-fill`)**: Layered polygon fills with tiered high-contrast opacities (28% for 5 min, 22% for 10 min, 18% for 15 min) configured via MapLibre expressions for maximum visibility across vector themes.
   - **Outlines (`isochrones-line`)**: Crisp 2.5px boundary strokes with 85% opacity clearly delineating walking time boundaries.
-  - **Labels (`isochrones-labels`)**: Symbol layer explicitly referencing `'Noto Sans Regular'` to prevent glyph loading failures on OpenFreeMap vector styles.
+  - **Labels (`isochrones-labels`)**: Repeated line-placement labels follow polygon outlines every 300 screen pixels, remain upright, and skip sharp bends with a 30-degree maximum angle. The layout uses `'Noto Sans Regular'`, 13px text, collision padding, dark `#1e293b` text, and a 3px white halo centered over the outline stroke.
   - **Layer Stacking**: Isochrone layers are automatically inserted underneath POI marker pins (`pois-favorites-halo`, `pois-circle`, `pois-symbol`, `pois-selection-ring`) and hover tooltips to ensure venue markers and text remain unhampered.
+  - **Feature Normalization**: `normalizeIsochroneFeatures(features)` keeps only `Polygon` and `MultiPolygon` features and returns shallow copies with trimmed labels. A blank label is generated from a finite `value` in seconds (rounded to the nearest minute); unsupported geometries and features without geometry are omitted. `renderIsochrones()` uses the normalized features when adding or updating the GeoJSON source, without mutating region data.
 - **Vector Icon Badges & Dynamic Sizing**: Pre-rasterizes crisp category SVG badges at 2x pixel ratio for high-DPI displays. All 10 category colors meet WCAG AA contrast standards (>= 4.5:1 ratio against white glyphs). Supports dynamic icon scaling via `setIconSize(size: POIIconSize | number)` with predefined presets (`small`: 0.9x, `medium`: 1.2x, `large`: 1.55x, `extra-large`: 1.95x) scaling vector symbol badges, circle backings, favorites halos, and selection rings in real time.
 - **POI Name Labels**: Renders on-map venue names directly beneath category symbols with text halos and automatic collision-avoidance layout.
 - **Bidirectional Selection**: Synchronizes map marker selections with sidebar card highlights and viewport camera centering.
@@ -348,6 +349,7 @@ The `ConferenceWalkerConfig` interface allows event organizers to customize bran
 - `setIsochronesVisible(visible: boolean)`: Toggles visibility of `isochrones-fill`, `isochrones-line`, and `isochrones-labels` layers via `map.setLayoutProperty`.
 - `getIsochronesVisible()`: Returns current visibility boolean.
 - Re-applies visibility state automatically across basemap style switches.
+- `ISOCHRONE_LABEL_LAYOUT`: Shared MapLibre symbol layout specifying line placement, 300px repeat spacing, upright map-aligned rotation, 30-degree maximum angle, 4px collision padding, 13px text, and the Noto Sans Regular fontstack. Collision detection remains enabled so labels do not obscure each other or POI symbols.
 
 ### 4.11 Basemap Switching Architecture (`src/map/mapStyles.ts`, `src/map/mapManager.ts`)
 - Supports OpenFreeMap vector styles: `positron` (Light), `bright`, and `liberty`.

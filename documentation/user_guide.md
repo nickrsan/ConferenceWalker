@@ -15,7 +15,7 @@ The map displays:
   - **Dark Blue (5 min)**: ~400 meters (28% fill opacity, crisp border outline) — ideal for quick session breaks.
   - **Teal (10 min)**: ~800 meters (22% fill opacity, crisp border outline) — great for a relaxed lunch.
   - **Light Green (15 min)**: ~1.2 kilometers (18% fill opacity, crisp border outline) — perfect for dinner or evening exploration.
-  - **Perimeter Labels**: Legible walk-time annotations layered smoothly beneath POI pins.
+  - **Outline Labels**: Dark, haloed `5 min`, `10 min`, and `15 min` labels follow and repeat along their matching boundary lines. They stay upright and avoid sharp bends, so you can identify a zone while panning or zooming on phones, tablets, or desktop screens.
 - **Categorized Vector Icon Badges**: Color-coded badges featuring distinctive icons for all 10 categories (fork & knife for restaurants, mug for coffee, cocktail for bars, etc.).
 - **On-Map Venue Name Labels**: Venue names are clearly labeled on the map beneath each icon with clean halo outlines for instant recognition.
 
@@ -55,7 +55,7 @@ ConferenceWalker includes a dedicated **Settings Panel** accessed via the **Sett
 2. **Map Display & Icons**:
    - **Map Icon Size**: Choose between **Small (Compact)** (0.9x), **Medium (Default)** (1.2x), **Large** (1.55x), and **Extra Large** (1.95x) to scale category icons, circle backings, favorites halos, and selection rings according to your visual preference or screen resolution.
    - **High-Contrast Badges**: All 10 category marker badges are engineered to meet WCAG AA contrast standards (≥ 4.5:1 ratio) against white glyphs for high legibility across light and dark map themes.
-   - **Walking Distance Zones (Isochrones)**: Controls whether concentric walking distance zones (5, 10, and 15-minute colored walkshed fills, boundaries, and labels) appear on the map. Turn off distance zones for a cleaner map view focusing solely on venue pins and street labels, or turn it on to see walking reachability boundaries at a glance. State is saved in `localStorage` and synchronized via URL query parameters (`?isochrones=false`).
+   - **Walking Distance Zones (Isochrones)**: Controls whether concentric walking distance zones (5, 10, and 15-minute colored walkshed fills, boundaries, and outline labels) appear on the map. Turn off distance zones for a cleaner map view focusing solely on venue pins and street labels, or turn them on to see walking reachability boundaries at a glance. State is saved in `localStorage` and synchronized via URL query parameters (`?isochrones=false`). The outline labels are visual guidance; the walking-distance filter and venue cards also provide walking-time information.
 
 3. **Basemap Styles**:
    - Switch between **Positron (Light)**, **Bright**, and **Liberty** OpenFreeMap vector styles without losing active filters, walking isochrones, selection rings, or venue pins. Conference organizers can also configure the default basemap on launch in `src/config.ts`.

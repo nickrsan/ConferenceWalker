@@ -51,7 +51,98 @@ import {
   registerCategoryImages,
 } from '../src/map/mapStyles';
 import { ALL_CATEGORIES, CATEGORY_META, POICategory } from '../src/types/poi';
-import { MapManager, ICON_SIZE_MULTIPLIERS } from '../src/map/mapManager';
+import {
+  MapManager,
+  ICON_SIZE_MULTIPLIERS,
+  ISOCHRONE_LABEL_LAYOUT,
+  normalizeIsochroneFeatures,
+} from '../src/map/mapManager';
+
+describe('normalizeIsochroneFeatures', () => {
+  it('trims labels and retains polygon and multipolygon features', () => {
+    const features = [
+      {
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [] },
+        properties: { label: '  5 min  ', value: 300 },
+      },
+      {
+        type: 'Feature',
+        geometry: { type: 'MultiPolygon', coordinates: [] },
+        properties: { label: '  10 min ', value: 600 },
+      },
+    ];
+
+    expect(normalizeIsochroneFeatures(features).map((feature) => feature.properties.label)).toEqual([
+      '5 min',
+      '10 min',
+    ]);
+  });
+
+  it('builds a label from the value when the label is missing or blank', () => {
+    const features = [
+      {
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [] },
+        properties: { value: 600 },
+      },
+      {
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [] },
+        properties: { value: 900, label: '   ' },
+      },
+    ];
+
+    expect(normalizeIsochroneFeatures(features).map((feature) => feature.properties.label)).toEqual([
+      '10 min',
+      '15 min',
+    ]);
+  });
+
+  it('drops non-polygon features and features without geometry', () => {
+    const features = [
+      { type: 'Feature', geometry: { type: 'Point', coordinates: [0, 0] }, properties: {} },
+      { type: 'Feature', properties: { value: 300 } },
+      { type: 'Feature', geometry: null, properties: { value: 300 } },
+    ];
+
+    expect(normalizeIsochroneFeatures(features)).toEqual([]);
+  });
+
+  it('returns copied features and properties without mutating the input', () => {
+    const feature = {
+      type: 'Feature',
+      geometry: { type: 'Polygon', coordinates: [] },
+      properties: { label: '  5 min ', value: 300 },
+    };
+    const original = structuredClone(feature);
+    const [normalizedFeature] = normalizeIsochroneFeatures([feature]);
+
+    expect(feature).toEqual(original);
+    expect(normalizedFeature).not.toBe(feature);
+    expect(normalizedFeature.properties).not.toBe(feature.properties);
+  });
+
+  it('returns an empty list for missing or empty feature collections', () => {
+    expect(normalizeIsochroneFeatures(undefined)).toEqual([]);
+    expect(normalizeIsochroneFeatures([])).toEqual([]);
+  });
+});
+
+describe('ISOCHRONE_LABEL_LAYOUT', () => {
+  it('configures repeated, upright line labels with the existing fontstack', () => {
+    expect(ISOCHRONE_LABEL_LAYOUT).toMatchObject({
+      'symbol-placement': 'line',
+      'symbol-spacing': 300,
+      'text-font': ['Noto Sans Regular'],
+      'text-size': 13,
+      'text-max-angle': 30,
+      'text-keep-upright': true,
+      'text-rotation-alignment': 'map',
+      'text-padding': 4,
+    });
+  });
+});
 
 describe('mapStyles', () => {
   it('buildCategoryColorExpression includes all 10 categories', () => {
@@ -253,17 +344,17 @@ describe('mapStyles', () => {
           {
             type: 'Feature',
             geometry: { type: 'Polygon', coordinates: [[[0, 0], [0, 1], [1, 1], [0, 0]]] },
-            properties: { value: 300, color: '#2b83ba', fillColor: '#2b83ba', label: '5 min' },
+            properties: { value: 300, color: '#2b83ba', fillColor: '#2b83ba', label: '  5 min ' },
           },
           {
             type: 'Feature',
             geometry: { type: 'Polygon', coordinates: [[[0, 0], [0, 2], [2, 2], [0, 0]]] },
-            properties: { value: 600, color: '#64abb0', fillColor: '#64abb0', label: '10 min' },
+            properties: { value: 600, color: '#64abb0', fillColor: '#64abb0', label: '  10 min ' },
           },
           {
             type: 'Feature',
             geometry: { type: 'Polygon', coordinates: [[[0, 0], [0, 3], [3, 3], [0, 0]]] },
-            properties: { value: 900, color: '#9dd3a7', fillColor: '#9dd3a7', label: '15 min' },
+            properties: { value: 900, color: '#9dd3a7', fillColor: '#9dd3a7', label: '  15 min ' },
           },
         ],
       },
@@ -279,9 +370,9 @@ describe('mapStyles', () => {
         data: expect.objectContaining({
           type: 'FeatureCollection',
           features: expect.arrayContaining([
-            expect.objectContaining({ properties: expect.objectContaining({ value: 300 }) }),
-            expect.objectContaining({ properties: expect.objectContaining({ value: 600 }) }),
-            expect.objectContaining({ properties: expect.objectContaining({ value: 900 }) }),
+            expect.objectContaining({ properties: expect.objectContaining({ value: 300, label: '5 min' }) }),
+            expect.objectContaining({ properties: expect.objectContaining({ value: 600, label: '10 min' }) }),
+            expect.objectContaining({ properties: expect.objectContaining({ value: 900, label: '15 min' }) }),
           ]),
         }),
       })
@@ -313,6 +404,20 @@ describe('mapStyles', () => {
     expect(labelsLayer).toBeDefined();
     expect(labelsLayer.type).toBe('symbol');
     expect(labelsLayer.layout['text-font']).toEqual(['Noto Sans Regular']);
+    expect(labelsLayer.layout).toMatchObject({
+      'symbol-placement': 'line',
+      'symbol-spacing': 300,
+      'text-max-angle': 30,
+      'text-keep-upright': true,
+      'text-rotation-alignment': 'map',
+      'text-padding': 4,
+      'text-size': 13,
+    });
+    expect(labelsLayer.layout).not.toHaveProperty('text-anchor');
+    expect(labelsLayer.layout).not.toHaveProperty('text-offset');
+    expect(labelsLayer.paint['text-color']).toBe('#1e293b');
+    expect(labelsLayer.paint['text-halo-color']).toBe('#ffffff');
+    expect(labelsLayer.paint['text-halo-width']).toBe(3);
 
     // Check layer insertion beneath POI markers
     expect(addedLayerBeforeIds).toEqual(['pois-circle', 'pois-circle', 'pois-circle']);
@@ -353,6 +458,7 @@ describe('mapStyles', () => {
   it('restores POIs, isochrones, and active filters when switching basemap styles', async () => {
     const container = document.createElement('div');
     let styledataHandler: (() => void) | null = null;
+    const restoredLayers: any[] = [];
 
     const mockMapInstance: any = {
       on: vi.fn((event: string, handler: any) => {
@@ -374,7 +480,7 @@ describe('mapStyles', () => {
       getLayer: vi.fn(() => true),
       getSource: vi.fn(() => false),
       addSource: vi.fn(),
-      addLayer: vi.fn(),
+      addLayer: vi.fn((layer: any) => restoredLayers.push(layer)),
       setFilter: vi.fn(),
       setPaintProperty: vi.fn(),
       setLayoutProperty: vi.fn(),
@@ -415,6 +521,8 @@ describe('mapStyles', () => {
     expect(renderPOIsSpy).toHaveBeenCalledWith(samplePOIs);
     expect(renderIsochronesSpy).toHaveBeenCalledWith(sampleRegion);
     expect(applyFilterSpy).toHaveBeenCalledWith(['==', ['get', 'category'], 'coffee_tea']);
+    expect(restoredLayers.find((layer) => layer.id === 'isochrones-labels')?.layout['symbol-placement'])
+      .toBe('line');
   });
 
   it('initializes MapManager with defaultBasemap from APP_CONFIG', () => {

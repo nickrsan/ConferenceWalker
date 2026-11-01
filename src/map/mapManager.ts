@@ -26,6 +26,51 @@ export const ICON_SIZE_MULTIPLIERS: Record<POIIconSize, number> = {
   'extra-large': 1.95,
 };
 
+/**
+ * Keeps isochrone polygons and normalizes their labels for consistent map display.
+ */
+export function normalizeIsochroneFeatures(features: any[] | undefined): any[] {
+  if (!Array.isArray(features)) return [];
+
+  return features
+    .filter((feature: any) =>
+      feature?.geometry &&
+      (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')
+    )
+    .map((feature: any) => {
+      const properties = feature.properties && typeof feature.properties === 'object'
+        ? feature.properties
+        : {};
+      const label = typeof properties.label === 'string' ? properties.label.trim() : '';
+      const rawValue = properties.value;
+      const value = typeof rawValue === 'number' || (typeof rawValue === 'string' && rawValue.trim())
+        ? Number(rawValue)
+        : Number.NaN;
+      const fallbackLabel = Number.isFinite(value) ? `${Math.round(value / 60)} min` : '';
+
+      return {
+        ...feature,
+        properties: {
+          ...properties,
+          label: label || fallbackLabel,
+        },
+      };
+    });
+}
+
+/** MapLibre line-symbol settings for repeated, readable labels on isochrone outlines. */
+export const ISOCHRONE_LABEL_LAYOUT = {
+  'symbol-placement': 'line' as const, // Follow the polygon outline instead of labeling its interior.
+  'symbol-spacing': 300, // Repeat labels every 300 screen pixels along each ring.
+  'text-field': ['get', 'label'] as ['get', 'label'], // Display the normalized walking-time label.
+  'text-font': ['Noto Sans Regular'], // Use the fontstack available in the vector basemaps.
+  'text-size': 13, // Keep labels legible across mobile, tablet, and desktop viewports.
+  'text-max-angle': 30, // Skip sharp bends where curved text would be difficult to read.
+  'text-keep-upright': true, // Prevent labels from rendering upside down around a ring.
+  'text-rotation-alignment': 'map' as const, // Rotate labels to follow the mapped outline.
+  'text-padding': 4, // Provide collision spacing around repeated labels.
+};
+
 export interface MapManagerEvents {
   onPOIClick?: (poiId: string, feature: POIFeature) => void;
   onPOIHover?: (poiId: string | null, feature: POIFeature | null) => void;
@@ -117,12 +162,10 @@ export class MapManager {
     this.region = region;
     if (!this.isLoaded) return;
 
-    // Filter features for polygons
+    // Keep polygon features and normalize labels without mutating the region data.
     const polygonFeatures = {
       type: 'FeatureCollection',
-      features: (region.geojson?.features || []).filter((f: any) =>
-        f.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon')
-      ),
+      features: normalizeIsochroneFeatures(region.geojson?.features),
     };
 
     if (this.map.getSource('isochrones-source')) {
@@ -189,16 +232,13 @@ export class MapManager {
           type: 'symbol',
           source: 'isochrones-source',
           layout: {
-            'text-field': ['get', 'label'],
-            'text-font': ['Noto Sans Regular'],
-            'text-size': 12,
-            'text-anchor': 'center',
+            ...ISOCHRONE_LABEL_LAYOUT,
             'visibility': this.isochronesVisible ? 'visible' : 'none',
           },
           paint: {
             'text-color': '#1e293b',
             'text-halo-color': '#ffffff',
-            'text-halo-width': 2,
+            'text-halo-width': 3,
           },
         },
         beforeLayerId

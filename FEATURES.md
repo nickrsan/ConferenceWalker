@@ -37,6 +37,7 @@ This document tracks all implemented features, capabilities, and data contracts 
 - **Embedded & Responsive Map**: MapLibre GL JS map centered on conference coordinates (`1230 J Street, Sacramento`), responsive across desktop viewports and mobile iframe embeds.
 - **OpenFreeMap Positron Basemap**: Open-source, high-contrast vector basemap (`https://tiles.openfreemap.org/styles/positron`) eliminating API keys, rate limits, and external tracking while maximizing contrast for walkshed overlays.
 - **Walkshed Isochrone Layers**: Semi-transparent colored fills (`5 min`, `10 min`, `15 min`) and border outlines rendering concentric walking areas.
+- **Contour-Style Isochrone Labels**: Walking-time labels follow each polygon outline, repeat at screen-pixel intervals, stay upright, and use a high-contrast halo for readability.
 - **Categorized Vector Icons**: Distinct vector icon badges for all 10 POI categories rendered with category theme colors, crisp white glyphs, and high-DPI scaling.
 - **Dynamic POI Name Labels**: On-map venue name labels using Noto Sans Regular glyphs, halo outlines for readability against light backgrounds, zoom-proportional scaling, and collision-aware layout.
 - **High-Performance POI Vector Layers**: Hardware-accelerated symbol and circle layers color-coded by the 10 categories, supporting real-time filter expressions at 60 FPS without DOM overhead.
