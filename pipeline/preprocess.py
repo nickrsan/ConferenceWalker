@@ -33,6 +33,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ConferenceWalkerPipeline")
 
+CONFIG = {
+    "EXCLUDE_NO_NAME": True  # if a POI lacks a name, ignore it
+}
+
 RESERVATION_DOMAINS = (
     "opentable.com",
     "resy.com",
@@ -218,7 +222,11 @@ def extract_osm_pois(
                 or props.get("operator")
                 or props.get("brand")
             )
-            # If no name is provided, use generic category display name
+
+            if not name and CONFIG["EXCLUDE_NO_NAME"] is True:
+                continue
+
+            # If we're not meant to exclude POIs without names *and* no name is provided, use generic category display name
             if not name or not str(name).strip():
                 name = CATEGORY_DISPLAY_NAMES.get(cat, cat.replace("_", " ").title())
             else:
