@@ -707,7 +707,7 @@ uniform ${z} ${D} u_${E};
               aria-label="${this.isFiltersOpen?"Close filters":"Open filters"}"
               title="${this.isFiltersOpen?"Close filters":"Open filters"}"
             >
-              <span class="icon" aria-hidden="true">${this.isFiltersOpen?"✕":"🎛️"}</span>
+              <span class="icon" aria-hidden="true">${this.isFiltersOpen?"✕":"&#9662;"}</span>
             </button>
           </div>
         </div>
