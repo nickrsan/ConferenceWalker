@@ -10,6 +10,7 @@ Validates:
   6. Prevention of false merges for distinct branches (e.g. chains separated by >25m).
 """
 
+import json
 import math
 import pytest
 from pipeline.categories import (
@@ -479,6 +480,58 @@ class TestPipelineIntegration:
         assert props["cuisines"] == ["coffee"]
         assert props["reservation_url"] == "https://resy.com/sac-cafe"
         assert props["order_url"] == "https://toasttab.com/sac-cafe"
+
+    def test_sparse_geojson_drops_none_properties_but_preserves_falsy_values(self):
+        from pipeline.preprocess import convert_pois_to_geojson, strip_none_values
+
+        geojson = convert_pois_to_geojson([
+            {
+                "id": "osm_1",
+                "name": "",
+                "category": "restaurant",
+                "coordinates": [0.0, 0.0],
+                "walk_time_minutes": 0,
+                "address": None,
+                "cuisines": [],
+                "sources": [],
+                "description": "",
+            }
+        ])
+        properties = geojson["features"][0]["properties"]
+
+        assert properties["name"] == ""
+        assert properties["walk_time_minutes"] == 0
+        assert properties["cuisines"] == []
+        assert properties["sources"] == []
+        assert properties["description"] == ""
+        assert "address" not in properties
+        assert "phone" not in properties
+        assert "overture_id" not in properties
+        assert strip_none_values({"zero": 0, "empty": "", "list": [], "false": False, "null": None}) == {
+            "zero": 0,
+            "empty": "",
+            "list": [],
+            "false": False,
+        }
+
+    def test_region_summary_omits_null_isochrone_metadata(self, tmp_path):
+        from pipeline.preprocess import export_region_summary
+
+        region = RegionMetadata(
+            name="Sparse Region",
+            center=(0.0, 0.0),
+            isochrones=[Isochrone(5, {"type": "Polygon", "coordinates": []}, "#123456", "#123456", "5 min")],
+            bbox=(0.0, 0.0, 0.0, 0.0),
+            raw_geojson={"type": "FeatureCollection", "features": []},
+        )
+        output_path = tmp_path / "region.json"
+
+        export_region_summary(region, str(output_path))
+
+        serialized = output_path.read_text(encoding="utf-8")
+        summary = json.loads(serialized)
+        assert "area" not in summary["isochrones"][0]
+        assert serialized.startswith("{\n  ")
 
     def test_deduplication_preserves_reservation_and_order_urls(self):
         poi_a = {

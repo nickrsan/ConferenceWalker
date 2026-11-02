@@ -139,4 +139,45 @@ describe('exportSaved utility', () => {
     // Missing description should be merged from payload
     expect(targetPOIs[1].properties.description).toBe('Lush green public park with shade trees and rose garden.');
   });
+
+  it('normalizes missing sparse fields in exported venues and merges descriptions into sparse features', () => {
+    const sparsePoi = {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [-121.49, 38.58] },
+      properties: {
+        id: 'sparse_poi',
+        name: 'Sparse Cafe',
+        category: 'restaurant',
+      },
+    } as unknown as POIFeature;
+
+    const exportedPayload: SavedPoisExportPayload = JSON.parse(
+      generateSavedPoisJson(new Set(['sparse_poi']), [sparsePoi])
+    );
+    expect(exportedPayload.venues?.[0]).toMatchObject({
+      address: null,
+      walk_time_minutes: null,
+      description: null,
+    });
+
+    const importPayload: SavedPoisExportPayload = {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      count: 1,
+      defaultSavedPois: ['sparse_poi'],
+      venues: [
+        {
+          id: 'sparse_poi',
+          name: 'Sparse Cafe',
+          category: 'restaurant',
+          address: null,
+          walk_time_minutes: null,
+          description: 'Organizer-curated description.',
+        },
+      ],
+    };
+
+    mergeExportedVenues(importPayload, [sparsePoi]);
+    expect(sparsePoi.properties.description).toBe('Organizer-curated description.');
+  });
 });

@@ -9,6 +9,7 @@ import { evaluateOpeningHours, getOpeningBadge, parseWeeklySchedule } from '../u
 import { buildGraphHopperWalkingUrl, buildMobileDirectionsIntent, buildUniversalMapsUrl, buildCartesAppUrl } from '../utils/directions';
 import { FavoritesStore } from '../state/favorites';
 import { DebugStore } from '../state/debugState';
+import { escapeHtml } from '../utils/escapeHtml';
 
 export interface POIDetailEvents {
   onClose?: () => void;
@@ -98,7 +99,18 @@ export class POIDetailComponent {
     const coords = this.currentPOI.geometry.coordinates;
     const catMeta = CATEGORY_META[props.category];
     const isFav = this.favoritesStore.isFavorite(props.id);
-    const openingStatus = evaluateOpeningHours(props.opening_hours);
+    const address = props.address ?? null;
+    const phone = props.phone ?? null;
+    const website = props.website ?? null;
+    const openingHours = props.opening_hours ?? null;
+    const walkTime = props.walk_time_minutes ?? null;
+    const description = props.description ?? null;
+    const reservationUrl = props.reservation_url ?? null;
+    const orderUrl = props.order_url ?? null;
+    const osmId = props.osm_id ?? null;
+    const overtureId = props.overture_id ?? null;
+    const escapedDescription = description ? escapeHtml(description) : null;
+    const openingStatus = evaluateOpeningHours(openingHours);
     const badge = getOpeningBadge(openingStatus);
 
     const graphHopperUrl = buildGraphHopperWalkingUrl(this.conferenceCoords, coords);
@@ -106,17 +118,17 @@ export class POIDetailComponent {
     const universalMapsUrl = buildUniversalMapsUrl(coords, props.name);
     const cartesAppUrl = buildCartesAppUrl(coords);
 
-    const walkText = props.walk_time_minutes ? `${props.walk_time_minutes} min walk` : '>15 min walk';
-    const weeklySchedule = props.opening_hours ? parseWeeklySchedule(props.opening_hours) : null;
+    const walkText = walkTime !== null ? `${walkTime} min walk` : '>15 min walk';
+    const weeklySchedule = openingHours ? parseWeeklySchedule(openingHours) : null;
 
-    const rawCuisines = props.cuisines || [];
+    const rawCuisines = props.cuisines ?? [];
     const cuisines: string[] = Array.isArray(rawCuisines)
       ? rawCuisines
       : typeof rawCuisines === 'string'
       ? (rawCuisines as string).split(',').map((s) => s.trim()).filter(Boolean)
       : [];
 
-    const rawSources = props.sources || [];
+    const rawSources = props.sources ?? [];
     const sources: string[] = Array.isArray(rawSources)
       ? rawSources
       : typeof rawSources === 'string'
@@ -137,13 +149,13 @@ export class POIDetailComponent {
           <span class="status-badge ${badge.className}">${badge.text}</span>
           <span class="walk-badge">🚶 ${walkText}</span>
           ${
-            props.reservation_url
-              ? `<a href="${props.reservation_url}" target="_blank" rel="noopener noreferrer" class="service-badge reservation-badge" title="Online Reservations Available">📅 Reservations</a>`
+            reservationUrl
+              ? `<a href="${reservationUrl}" target="_blank" rel="noopener noreferrer" class="service-badge reservation-badge" title="Online Reservations Available">📅 Reservations</a>`
               : ''
           }
           ${
-            props.order_url
-              ? `<a href="${props.order_url}" target="_blank" rel="noopener noreferrer" class="service-badge order-badge" title="Online Ordering Available">🛍️ Order Online</a>`
+            orderUrl
+              ? `<a href="${orderUrl}" target="_blank" rel="noopener noreferrer" class="service-badge order-badge" title="Online Ordering Available">🛍️ Order Online</a>`
               : ''
           }
         </div>
@@ -151,23 +163,23 @@ export class POIDetailComponent {
 
       <div class="poi-detail-body">
         ${
-          props.address
+          address
             ? `
           <div class="detail-row">
             <span class="row-icon">📍</span>
-            <span class="row-text">${props.address}</span>
+            <span class="row-text">${address}</span>
           </div>
         `
             : ''
         }
 
         ${
-          props.phone
+          phone
             ? `
           <div class="detail-row">
             <span class="row-icon">📞</span>
-            <a href="tel:${props.phone.replace(/[^0-9+]/g, '')}" class="row-link tap-target">
-              ${props.phone}
+            <a href="tel:${phone.replace(/[^0-9+]/g, '')}" class="row-link tap-target">
+              ${phone}
             </a>
           </div>
         `
@@ -175,12 +187,12 @@ export class POIDetailComponent {
         }
 
         ${
-          props.website
+          website
             ? `
           <div class="detail-row">
             <span class="row-icon">🌐</span>
-            <a href="${props.website}" target="_blank" rel="noopener noreferrer" class="row-link tap-target">
-              ${props.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
+            <a href="${website}" target="_blank" rel="noopener noreferrer" class="row-link tap-target">
+              ${website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
               <span class="external-icon" aria-hidden="true">↗</span>
             </a>
           </div>
@@ -189,12 +201,12 @@ export class POIDetailComponent {
         }
 
         ${
-          props.description
+          escapedDescription
             ? `
           <div class="detail-row description-row">
             <span class="row-icon">📝</span>
             <div class="description-content">
-              <p class="poi-description-text">${props.description}</p>
+              <p class="poi-description-text">${escapedDescription}</p>
             </div>
           </div>
         `
@@ -202,11 +214,11 @@ export class POIDetailComponent {
         }
 
         ${
-          props.reservation_url
+          reservationUrl
             ? `
           <div class="detail-row reservation-row">
             <span class="row-icon">📅</span>
-            <a href="${props.reservation_url}" target="_blank" rel="noopener noreferrer" class="row-link tap-target reservation-link">
+            <a href="${reservationUrl}" target="_blank" rel="noopener noreferrer" class="row-link tap-target reservation-link">
               <span>Reserve Table Online</span>
               <span class="external-icon" aria-hidden="true">↗</span>
             </a>
@@ -216,11 +228,11 @@ export class POIDetailComponent {
         }
 
         ${
-          props.order_url
+          orderUrl
             ? `
           <div class="detail-row order-row">
             <span class="row-icon">🛍️</span>
-            <a href="${props.order_url}" target="_blank" rel="noopener noreferrer" class="row-link tap-target order-link">
+            <a href="${orderUrl}" target="_blank" rel="noopener noreferrer" class="row-link tap-target order-link">
               <span>Order Food Online</span>
               <span class="external-icon" aria-hidden="true">↗</span>
             </a>
@@ -253,13 +265,13 @@ export class POIDetailComponent {
             </div>
           </div>
         `
-            : props.opening_hours
+            : openingHours
             ? `
           <div class="detail-row hours-row">
             <span class="row-icon">🕒</span>
             <div class="hours-content">
               <strong>Hours</strong>
-              <div class="hours-schedule">${props.opening_hours}</div>
+              <div class="hours-schedule">${openingHours}</div>
             </div>
           </div>
         `
@@ -289,8 +301,8 @@ export class POIDetailComponent {
           <div class="detail-row debug-row">
             <span class="row-icon">🛠️</span>
             <div class="debug-ids-content">
-              <div class="debug-id-item"><span class="debug-id-label">OSM ID:</span> <code class="debug-id-val">${props.osm_id || 'None'}</code></div>
-              <div class="debug-id-item"><span class="debug-id-label">GERS ID:</span> <code class="debug-id-val">${props.overture_id || 'None'}</code></div>
+              <div class="debug-id-item"><span class="debug-id-label">OSM ID:</span> <code class="debug-id-val">${osmId ?? 'None'}</code></div>
+              <div class="debug-id-item"><span class="debug-id-label">GERS ID:</span> <code class="debug-id-val">${overtureId ?? 'None'}</code></div>
             </div>
           </div>
         `
@@ -310,10 +322,10 @@ export class POIDetailComponent {
         </button>
 
         ${
-          props.reservation_url
+          reservationUrl
             ? `
           <a
-            href="${props.reservation_url}"
+            href="${reservationUrl}"
             target="_blank"
             rel="noopener noreferrer"
             class="btn-action-directions btn-reservation tap-target"
@@ -325,10 +337,10 @@ export class POIDetailComponent {
         }
 
         ${
-          props.order_url
+          orderUrl
             ? `
           <a
-            href="${props.order_url}"
+            href="${orderUrl}"
             target="_blank"
             rel="noopener noreferrer"
             class="btn-action-directions btn-order tap-target"

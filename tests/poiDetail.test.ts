@@ -149,6 +149,23 @@ describe('POIDetailComponent', () => {
     expect(descRow!.textContent).toContain('Historic downtown grill serving locally sourced California comfort food');
   });
 
+  it('renders organizer description text without interpreting embedded HTML', () => {
+    const description = '<img src=x onerror=alert(1)> & curated text';
+    const featureWithMarkup: POIFeature = {
+      ...baseFeature,
+      properties: {
+        ...baseFeature.properties,
+        description,
+      },
+    };
+
+    component.show(featureWithMarkup);
+
+    const descriptionElement = container.querySelector('.poi-description-text');
+    expect(descriptionElement?.textContent).toBe(description);
+    expect(descriptionElement?.querySelector('img')).toBeNull();
+  });
+
   it('omits description row when description is absent', () => {
     const featureWithoutDesc: POIFeature = {
       ...baseFeature,
@@ -161,6 +178,23 @@ describe('POIDetailComponent', () => {
     component.show(featureWithoutDesc);
 
     expect(container.querySelector('.description-row')).toBeNull();
+  });
+
+  it('renders sparse POI properties without throwing and uses outside-zone defaults', () => {
+    const sparseFeature = {
+      ...baseFeature,
+      properties: {
+        id: 'sparse_poi',
+        name: 'Sparse Venue',
+        category: 'restaurant',
+      },
+    } as unknown as POIFeature;
+
+    expect(() => component.show(sparseFeature)).not.toThrow();
+    expect(container.querySelector('.walk-badge')?.textContent).toContain('>15 min walk');
+    expect(container.querySelector('.description-row')).toBeNull();
+    expect(container.querySelector('.reservation-row')).toBeNull();
+    expect(container.querySelector('.order-row')).toBeNull();
   });
 
   it('renders Cartes.app navigation button with correct deep link URL', () => {

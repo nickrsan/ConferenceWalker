@@ -83,6 +83,9 @@ export interface ConferenceWalkerConfig {
    * Defaults to 'positron'.
    */
   defaultBasemap?: BasemapStyleKey;
+
+  /** Bump to clear allowlisted non-favorite settings once in returning browsers. */
+  settingsResetVersion?: number;
 }
 
 /**
@@ -101,6 +104,7 @@ export const APP_CONFIG: ConferenceWalkerConfig = {
   showIsochronesByDefault: true,
   iconSize: 'extra-large',
   defaultBasemap: 'positron',
+  settingsResetVersion: 0,
   conferencePinLabel: "Sheraton Grand - Conference Venue",
   conferenceSubtitle: "FOSS4GNA 2026 Sacramento",
   welcomeHtml: "<p>Looking for coffee? A nice park to wander? A place to meet a friend? Find all of it in walking distance with the map and filters</p>",

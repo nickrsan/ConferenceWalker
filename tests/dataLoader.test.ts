@@ -1,8 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   isValidCategory,
   parseAndValidatePOIs,
   extractAvailableCuisines,
+  parseDescriptionOverrides,
+  loadDescriptionOverrides,
+  applyDescriptionOverrides,
 } from '../src/services/dataLoader';
 import { POIFeature, ALL_CATEGORIES } from '../src/types/poi';
 import fs from 'fs';
@@ -80,6 +83,47 @@ describe('dataLoader service', () => {
       expect(feat.properties.osm_id).toBe('12345');
       expect(feat.properties.overture_id).toBe('ov_67890');
       expect(feat.properties.description).toBe('Artisan roaster with single-origin beans and outdoor patio.');
+    });
+
+    it('normalizes omitted sparse keys exactly like explicit null values', () => {
+      const createGeoJSON = (properties: Record<string, unknown>) => ({
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [-121.49, 38.58] },
+            properties,
+          },
+        ],
+      });
+      const sparseProperties = {
+        id: 'sparse_poi',
+        name: 'Sparse Cafe',
+        category: 'coffee_tea',
+      };
+      const explicitNullProperties = {
+        ...sparseProperties,
+        walk_time_minutes: null,
+        address: null,
+        phone: null,
+        website: null,
+        opening_hours: null,
+        cuisines: null,
+        sources: null,
+        osm_id: null,
+        overture_id: null,
+        reservation_url: null,
+        order_url: null,
+        description: null,
+      };
+
+      const sparseFeature = parseAndValidatePOIs(createGeoJSON(sparseProperties)).features[0];
+      const explicitNullFeature = parseAndValidatePOIs(createGeoJSON(explicitNullProperties)).features[0];
+
+      expect(sparseFeature.properties).toEqual(explicitNullFeature.properties);
+      expect(sparseFeature.properties.walk_time_minutes).toBeNull();
+      expect(sparseFeature.properties.cuisines).toEqual([]);
+      expect(sparseFeature.properties.sources).toEqual(['osm']);
     });
 
     it('skips features with invalid coordinates or non-point geometry', () => {
@@ -176,6 +220,79 @@ describe('dataLoader service', () => {
 
       const cuisines = extractAvailableCuisines(features);
       expect(cuisines).toEqual(['italian', 'pasta', 'pizza']);
+    });
+  });
+
+  describe('POI description overrides', () => {
+    it('normalizes OSM ID prefixes and ignores blank or non-string descriptions', () => {
+      const overrides = parseDescriptionOverrides({
+        ' osm_90498377 ': '  Cathedral description.  ',
+        '123': '  Another description.\n',
+        blank: '  \n',
+        invalid: 42,
+      });
+
+      expect(overrides).toEqual(new Map([
+        ['90498377', 'Cathedral description.'],
+        ['123', 'Another description.'],
+      ]));
+      expect(parseDescriptionOverrides([])).toEqual(new Map());
+    });
+
+    it('applies matching overrides without mutating source features or unrelated descriptions', () => {
+      const originalFeatures = parseAndValidatePOIs({
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [0, 0] },
+            properties: { id: 'one', name: 'One', category: 'restaurant', osm_id: 'osm_90498377', description: 'Pipeline text.' },
+          },
+          {
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [1, 1] },
+            properties: { id: 'two', name: 'Two', category: 'restaurant', osm_id: '222', description: 'Keep this text.' },
+          },
+        ],
+      }).features;
+
+      const updatedFeatures = applyDescriptionOverrides(
+        originalFeatures,
+        parseDescriptionOverrides({ '90498377': 'Organizer description.' })
+      );
+
+      expect(updatedFeatures[0]).not.toBe(originalFeatures[0]);
+      expect(updatedFeatures[0].properties.description).toBe('Organizer description.');
+      expect(updatedFeatures[1].properties.description).toBe('Keep this text.');
+      expect(originalFeatures[0].properties.description).toBe('Pipeline text.');
+    });
+
+    it('loads a valid file and gracefully handles missing, malformed, or offline files', async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      try {
+        fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ 'osm_42': ' Curated text ' }) });
+        expect(await loadDescriptionOverrides()).toEqual(new Map([['42', 'Curated text']]));
+        expect(fetchMock).toHaveBeenLastCalledWith('./data/poi_descriptions.json');
+
+        fetchMock.mockResolvedValueOnce({ ok: false, status: 404 });
+        expect(await loadDescriptionOverrides('/missing.json')).toEqual(new Map());
+
+        fetchMock.mockResolvedValueOnce({ ok: true, json: async () => [] });
+        expect(await loadDescriptionOverrides('/invalid-shape.json')).toEqual(new Map());
+
+        fetchMock.mockResolvedValueOnce({ ok: true, json: async () => { throw new Error('Invalid JSON'); } });
+        expect(await loadDescriptionOverrides('/malformed.json')).toEqual(new Map());
+
+        fetchMock.mockRejectedValueOnce(new Error('Network unavailable'));
+        expect(await loadDescriptionOverrides('/offline.json')).toEqual(new Map());
+        expect(warnSpy).toHaveBeenCalledTimes(4);
+      } finally {
+        warnSpy.mockRestore();
+        vi.unstubAllGlobals();
+      }
     });
   });
 

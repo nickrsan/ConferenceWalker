@@ -1,5 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { FavoritesStore } from '../src/state/favorites';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import {
+  FavoritesStore,
+  FAVORITES_STORAGE_KEY,
+  mergeDeployedDefaultFavorites,
+  SEEN_DEFAULTS_STORAGE_KEY,
+} from '../src/state/favorites';
 import { generateSavedPoisJson, isExportModeEnabled } from '../src/utils/exportSaved';
 import { POIFeature } from '../src/types/poi';
 
@@ -21,19 +26,61 @@ describe('FavoritesStore', () => {
     expect(store.getFavorites().size).toBe(2);
     expect(store.isFavorite('default_venue_1')).toBe(true);
     expect(store.isFavorite('default_venue_2')).toBe(true);
+    expect(JSON.parse(window.localStorage.getItem(FAVORITES_STORAGE_KEY) || '[]')).toEqual(defaultPois);
+    expect(JSON.parse(window.localStorage.getItem(SEEN_DEFAULTS_STORAGE_KEY) || '[]')).toEqual(defaultPois);
   });
 
-  it('preserves existing user favorites from localStorage rather than overwriting with defaults', () => {
+  it('preserves existing user favorites and adds deployed defaults', () => {
     window.localStorage.setItem(
-      'conference_walker_favorites_v1',
+      FAVORITES_STORAGE_KEY,
       JSON.stringify(['user_custom_poi'])
     );
     const defaultPois = ['default_venue_1', 'default_venue_2'];
     const store = new FavoritesStore(defaultPois);
 
-    expect(store.getFavorites().size).toBe(1);
+    expect(store.getFavorites().size).toBe(3);
     expect(store.isFavorite('user_custom_poi')).toBe(true);
-    expect(store.isFavorite('default_venue_1')).toBe(false);
+    expect(store.isFavorite('default_venue_1')).toBe(true);
+    expect(store.isFavorite('default_venue_2')).toBe(true);
+  });
+
+  it('does not re-add a deployed default after the user removes or clears it', () => {
+    const defaults = ['deployed_poi'];
+    const firstLoad = new FavoritesStore(defaults);
+
+    firstLoad.removeFavorite('deployed_poi');
+    expect(JSON.parse(window.localStorage.getItem(SEEN_DEFAULTS_STORAGE_KEY) || '[]')).toEqual(defaults);
+    expect(new FavoritesStore(defaults).isFavorite('deployed_poi')).toBe(false);
+
+    const clearedFavorites = new FavoritesStore(defaults);
+    clearedFavorites.clearFavorites();
+    expect(JSON.parse(window.localStorage.getItem(SEEN_DEFAULTS_STORAGE_KEY) || '[]')).toEqual(defaults);
+    expect(new FavoritesStore(defaults).isFavorite('deployed_poi')).toBe(false);
+  });
+
+  it('does not overwrite corrupted stored stars while still handling new defaults in memory', () => {
+    const corruptedStars = '{invalid-json';
+    window.localStorage.setItem(FAVORITES_STORAGE_KEY, corruptedStars);
+    window.localStorage.setItem(SEEN_DEFAULTS_STORAGE_KEY, '[]');
+
+    const store = new FavoritesStore(['new_default']);
+
+    expect(store.isFavorite('new_default')).toBe(true);
+    expect(window.localStorage.getItem(FAVORITES_STORAGE_KEY)).toBe(corruptedStars);
+    expect(JSON.parse(window.localStorage.getItem(SEEN_DEFAULTS_STORAGE_KEY) || '[]')).toEqual(['new_default']);
+  });
+
+  it('falls back to in-memory defaults if reading localStorage throws', () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('Storage is blocked');
+    });
+
+    try {
+      const store = new FavoritesStore(['safe_default']);
+      expect(store.isFavorite('safe_default')).toBe(true);
+    } finally {
+      getItemSpy.mockRestore();
+    }
   });
 
   it('toggles favorites and persists to localStorage', () => {
@@ -129,5 +176,36 @@ describe('FavoritesStore', () => {
     expect(parsed.venues?.length).toBe(2);
     expect(parsed.venues?.[0].name).toBe('Recommended Bakery');
     expect(parsed.venues?.[1].name).toBe('Conference Hotel');
+  });
+});
+
+describe('mergeDeployedDefaultFavorites', () => {
+  it('adds only unseen deployed defaults and never removes stored stars', () => {
+    const firstVisit = mergeDeployedDefaultFavorites(null, null, ['deployed_a', 'deployed_b']);
+    expect(firstVisit).toEqual({
+      favorites: ['deployed_a', 'deployed_b'],
+      seen: ['deployed_a', 'deployed_b'],
+      changed: true,
+    });
+
+    const returningVisit = mergeDeployedDefaultFavorites(
+      ['user_custom', 'deployed_b'],
+      ['deployed_a', 'deployed_b'],
+      ['deployed_a', 'deployed_b', 'deployed_c']
+    );
+    expect(returningVisit.favorites).toEqual(['user_custom', 'deployed_b', 'deployed_c']);
+    expect(returningVisit.seen).toEqual(['deployed_a', 'deployed_b', 'deployed_c']);
+    expect(returningVisit.changed).toBe(true);
+  });
+
+  it('keeps an already-seen default unstarred and reports no changes when current', () => {
+    const unstarredDefault = mergeDeployedDefaultFavorites(
+      ['user_custom'],
+      ['deployed_a'],
+      ['deployed_a']
+    );
+    expect(unstarredDefault.favorites).toEqual(['user_custom']);
+    expect(unstarredDefault.seen).toEqual(['deployed_a']);
+    expect(unstarredDefault.changed).toBe(false);
   });
 });

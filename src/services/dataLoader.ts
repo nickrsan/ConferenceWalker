@@ -59,25 +59,28 @@ export function parseAndValidatePOIs(raw: unknown): POIFeatureCollection {
       category = rawProps.category;
     }
 
-    // Validate walk time
+    // Sparse JSON omits null keys, so normalize absent and explicit null values together.
+    const rawWalkTime = rawProps.walk_time_minutes ?? null;
     let walkTime: number | null = null;
-    if (rawProps.walk_time_minutes !== null && rawProps.walk_time_minutes !== undefined) {
-      const parsedWalk = Number(rawProps.walk_time_minutes);
+    if (rawWalkTime !== null) {
+      const parsedWalk = Number(rawWalkTime);
       if (!isNaN(parsedWalk)) {
         walkTime = parsedWalk;
       }
     }
 
     // Parse cuisines
+    const rawCuisines = rawProps.cuisines ?? [];
     let cuisines: string[] = [];
-    if (Array.isArray(rawProps.cuisines)) {
-      cuisines = rawProps.cuisines.map((c) => String(c).trim().toLowerCase()).filter(Boolean);
+    if (Array.isArray(rawCuisines)) {
+      cuisines = rawCuisines.map((c) => String(c).trim().toLowerCase()).filter(Boolean);
     }
 
     // Parse sources
+    const rawSources = rawProps.sources ?? [];
     let sources: ('osm' | 'overture')[] = [];
-    if (Array.isArray(rawProps.sources)) {
-      sources = rawProps.sources
+    if (Array.isArray(rawSources)) {
+      sources = rawSources
         .map((s) => String(s).toLowerCase())
         .filter((s): s is 'osm' | 'overture' => s === 'osm' || s === 'overture');
     }
@@ -85,22 +88,32 @@ export function parseAndValidatePOIs(raw: unknown): POIFeatureCollection {
       sources = ['osm'];
     }
 
+    const address = rawProps.address ?? null;
+    const phone = rawProps.phone ?? null;
+    const website = rawProps.website ?? null;
+    const openingHours = rawProps.opening_hours ?? null;
+    const osmId = rawProps.osm_id ?? null;
+    const overtureId = rawProps.overture_id ?? null;
+    const reservationUrl = rawProps.reservation_url ?? null;
+    const orderUrl = rawProps.order_url ?? null;
+    const description = rawProps.description ?? null;
+
     const properties: POIProperties = {
       id: String(rawProps.id || `poi_${i}`),
       name: String(rawProps.name || 'Unnamed Point of Interest').trim(),
       category,
       walk_time_minutes: walkTime,
-      address: rawProps.address ? String(rawProps.address).trim() : null,
-      phone: rawProps.phone ? String(rawProps.phone).trim() : null,
-      website: rawProps.website ? String(rawProps.website).trim() : null,
-      opening_hours: rawProps.opening_hours ? String(rawProps.opening_hours).trim() : null,
+      address: address ? String(address).trim() : null,
+      phone: phone ? String(phone).trim() : null,
+      website: website ? String(website).trim() : null,
+      opening_hours: openingHours ? String(openingHours).trim() : null,
       cuisines,
       sources,
-      osm_id: rawProps.osm_id ? String(rawProps.osm_id) : null,
-      overture_id: rawProps.overture_id ? String(rawProps.overture_id) : null,
-      reservation_url: rawProps.reservation_url ? String(rawProps.reservation_url).trim() : null,
-      order_url: rawProps.order_url ? String(rawProps.order_url).trim() : null,
-      description: rawProps.description ? String(rawProps.description).trim() : null,
+      osm_id: osmId ? String(osmId) : null,
+      overture_id: overtureId ? String(overtureId) : null,
+      reservation_url: reservationUrl ? String(reservationUrl).trim() : null,
+      order_url: orderUrl ? String(orderUrl).trim() : null,
+      description: description ? String(description).trim() : null,
     };
 
     validFeatures.push({
@@ -125,7 +138,7 @@ export function parseAndValidatePOIs(raw: unknown): POIFeatureCollection {
 export function extractAvailableCuisines(features: POIFeature[]): string[] {
   const cuisineSet = new Set<string>();
   for (const feature of features) {
-    for (const cuisine of feature.properties.cuisines) {
+    for (const cuisine of feature.properties.cuisines ?? []) {
       if (cuisine) {
         cuisineSet.add(cuisine);
       }
@@ -159,4 +172,71 @@ export async function loadPOIData(url = './data/sacramento_pois.geojson'): Promi
   }
   const raw = await response.json();
   return parseAndValidatePOIs(raw);
+}
+
+function normalizeOsmId(value: unknown): string | null {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  const normalizedId = String(value).trim().replace(/^osm_/i, '');
+  return normalizedId || null;
+}
+
+/** Parses organizer descriptions keyed by OSM ID, ignoring blank and malformed entries. */
+export function parseDescriptionOverrides(raw: unknown): Map<string, string> {
+  const descriptions = new Map<string, string>();
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return descriptions;
+
+  const prototype = Object.getPrototypeOf(raw);
+  if (prototype !== Object.prototype && prototype !== null) return descriptions;
+
+  for (const [rawOsmId, rawDescription] of Object.entries(raw as Record<string, unknown>)) {
+    const osmId = normalizeOsmId(rawOsmId);
+    const description = typeof rawDescription === 'string' ? rawDescription.trim() : '';
+    if (osmId && description) {
+      descriptions.set(osmId, description);
+    }
+  }
+
+  return descriptions;
+}
+
+/** Loads the optional override file; missing, invalid, and offline cases safely return no overrides. */
+export async function loadDescriptionOverrides(
+  url = './data/poi_descriptions.json'
+): Promise<Map<string, string>> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.warn(`Unable to load POI description overrides from ${url} (HTTP ${response.status}).`);
+      return new Map();
+    }
+
+    const raw = await response.json();
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      console.warn(`Invalid POI description overrides in ${url}; expected an object keyed by OSM ID.`);
+      return new Map();
+    }
+    return parseDescriptionOverrides(raw);
+  } catch (error) {
+    console.warn(`Unable to load POI description overrides from ${url}.`, error);
+    return new Map();
+  }
+}
+
+/** Returns new POI feature objects, applying curated text without mutating the source collection. */
+export function applyDescriptionOverrides(
+  features: POIFeature[],
+  overrides: Map<string, string>
+): POIFeature[] {
+  return features.map((feature) => {
+    const osmId = normalizeOsmId(feature.properties.osm_id);
+    const override = osmId ? overrides.get(osmId) : undefined;
+
+    return {
+      ...feature,
+      properties: {
+        ...feature.properties,
+        ...(override ? { description: override } : {}),
+      },
+    };
+  });
 }

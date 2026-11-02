@@ -49,7 +49,7 @@ export class WalkDistanceFilterComponent {
     };
 
     for (const f of this.allFeatures) {
-      const w = f.properties.walk_time_minutes;
+      const w = f.properties.walk_time_minutes ?? null;
       const keyStr = w !== null ? String(w) : 'outside';
       if (keyStr in counts) {
         counts[keyStr]++;

@@ -109,6 +109,30 @@ describe('FilterStore logic and predicates', () => {
     expect(matches).toEqual(['coffee_5min']);
   });
 
+  it('handles sparse POI fields in walk-time, text, and cuisine filters', () => {
+    const sparsePoi = {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [-121.49, 38.58] },
+      properties: {
+        id: 'sparse_restaurant',
+        name: 'Sparse Kitchen',
+        category: 'restaurant',
+      },
+    } as unknown as POIFeature;
+    const searchStore = new FilterStore({
+      allowedWalkTimes: new Set(['outside']),
+      searchQuery: 'sparse',
+    });
+
+    expect(Array.from(searchStore.getMatchingIds([sparsePoi], new Set()))).toEqual(['sparse_restaurant']);
+
+    const cuisineStore = new FilterStore({
+      allowedWalkTimes: new Set(['outside']),
+      selectedCuisines: new Set(['italian']),
+    });
+    expect(Array.from(cuisineStore.getMatchingIds([sparsePoi], new Set()))).toEqual([]);
+  });
+
   it('Scenario 4: Restaurant cuisine filtering', () => {
     const store = new FilterStore();
     const favorites = new Set<string>();

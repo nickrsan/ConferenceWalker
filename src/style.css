@@ -172,12 +172,16 @@ body.resizing-sidebar * {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
 }
 
 .header-brand {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .brand-icon {
@@ -189,6 +193,13 @@ body.resizing-sidebar * {
   font-weight: 700;
   color: var(--color-text-main);
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brand-text {
+  min-width: 0;
 }
 
 .conference-name {
@@ -197,7 +208,7 @@ body.resizing-sidebar * {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 220px;
+  max-width: 100%;
   display: block;
 }
 
@@ -205,18 +216,23 @@ body.resizing-sidebar * {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .btn-toggle-settings,
 .btn-toggle-filters {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
   background-color: var(--color-border-subtle);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  font-size: 0.85rem;
+  font-size: 1.25rem;
   font-weight: 600;
   color: var(--color-text-main);
   cursor: pointer;
@@ -1298,6 +1314,10 @@ body.resizing-sidebar * {
   font-size: 0.88rem;
 }
 
+.poi-description-text {
+  white-space: pre-line;
+}
+
 .row-icon {
   font-size: 1.1rem;
   flex-shrink: 0;
@@ -1608,6 +1628,14 @@ body.resizing-sidebar * {
 
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
+  .btn-toggle-settings,
+  .btn-toggle-filters {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    min-height: 48px;
+  }
+
   .sidebar-resizer {
     display: none !important;
   }

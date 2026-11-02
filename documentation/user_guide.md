@@ -48,9 +48,10 @@ On desktop monitors and widescreen tablets, you can dynamically customize the wi
 ConferenceWalker includes a dedicated **Settings Panel** accessed via the **Settings (⚙️)** button in the sidebar header. The settings panel allows you to customize data sources, map styles, and display options:
 
 1. **Accessing Settings**:
-   - Click the **⚙️ Settings** button in the top right of the sidebar header.
+   - Click the icon-only **⚙️** button in the top right of the sidebar header. Screen readers announce it as **Settings**.
    - The settings panel smoothly opens in place of the results listing so you can configure preferences without visual distractions.
-   - Click **Done** or the **✕** close button (or tap **Settings** or switch directly to the **Explore** or **Saved** tabs) when finished to return immediately to your venue results.
+   - Click **Done** or the **✕** close button (or tap **⚙️** or switch directly to the **Explore** or **Saved** tabs) when finished to return immediately to your venue results.
+   - The adjacent icon-only **🎛️** Filters button opens or closes filters; its accessible name and tooltip describe the action.
 
 2. **Map Display & Icons**:
    - **Map Icon Size**: Choose between **Small (Compact)** (0.9x), **Medium (Default)** (1.2x), **Large** (1.55x), and **Extra Large** (1.95x) to scale category icons, circle backings, favorites halos, and selection rings according to your visual preference or screen resolution.
@@ -143,7 +144,7 @@ Click any venue marker on the map or its card in the sidebar list to open the **
 - **Street Address**: Formatted physical location.
 - **Tappable Phone Number**: Click on mobile to dial immediately.
 - **Clickable Website Link**: Opens the venue's official website or menu in a new tab.
-- **Venue Description (📝)**: Contextual notes or descriptions extracted from OpenStreetMap tags or organizer metadata.
+- **Venue Description (📝)**: Contextual notes from OpenStreetMap or an organizer-curated description when one is provided; organizer text takes priority.
 - **Weekly Operating Hours Schedule**: When parsed with standard schedules, displays a clean day-by-day breakdown (one day per line, localized weekday names) with the **current weekday highlighted in bold**.
 - **Cuisine Tags**: Listed food specialties.
 
@@ -165,6 +166,7 @@ ConferenceWalker keeps track of your favorite places throughout the conference:
 3. Switch to the **★ Saved** tab in the sidebar header to view a dedicated listing of only your saved places.
 4. **Curated Startup Recommendations**: Conference organizers can configure the app to launch directly with recommended venues starred and the Saved tab active. Attendees can easily click the **Explore** tab to browse all conference venues.
 5. **Privacy & Offline Persistence**: Favorites are saved directly in your browser's `localStorage` — no login, tracking, or cloud account required!
+6. **Kept Across App Updates**: Deployments never reset your starred places. New organizer-recommended places are added once, and if you unstar one it stays unstarred across later visits and updates.
 
 ---
 

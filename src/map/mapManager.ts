@@ -5,6 +5,7 @@
  */
 
 import maplibregl, { Map as MapLibreMap, Popup, Marker } from 'maplibre-gl';
+import type { StyleSpecification } from 'maplibre-gl';
 import { POICategory, CATEGORY_META, POIFeature, POIFeatureCollection, RegionMetadata, POIIconSize } from '../types/poi';
 import { APP_CONFIG } from '../config';
 import {
@@ -71,6 +72,39 @@ export const ISOCHRONE_LABEL_LAYOUT = {
   'text-padding': 4, // Provide collision spacing around repeated labels.
 };
 
+const APP_STYLE_SOURCE_IDS = new Set(['isochrones-source', 'pois-source']);
+
+/** Carries the app-owned GeoJSON sources and their layers into a new basemap style. */
+export function carryOverAppLayers(
+  previousStyle: StyleSpecification | undefined,
+  nextStyle: StyleSpecification
+): StyleSpecification {
+  if (!previousStyle) return nextStyle;
+
+  const sources = { ...nextStyle.sources };
+  for (const sourceId of APP_STYLE_SOURCE_IDS) {
+    if (!sources[sourceId] && previousStyle.sources[sourceId]) {
+      sources[sourceId] = previousStyle.sources[sourceId];
+    }
+  }
+
+  const existingLayerIds = new Set(nextStyle.layers.map((layer) => layer.id));
+  const carriedLayers = previousStyle.layers.filter((layer) => {
+    const sourceId = 'source' in layer ? layer.source : undefined;
+    return typeof sourceId === 'string' &&
+      APP_STYLE_SOURCE_IDS.has(sourceId) &&
+      Boolean(sources[sourceId]) &&
+      !existingLayerIds.has(layer.id);
+  });
+
+  return {
+    ...nextStyle,
+    sources,
+    // Keep the app layers in their previous relative order above the basemap layers.
+    layers: [...nextStyle.layers, ...carriedLayers],
+  };
+}
+
 export interface MapManagerEvents {
   onPOIClick?: (poiId: string, feature: POIFeature) => void;
   onPOIHover?: (poiId: string | null, feature: POIFeature | null) => void;
@@ -89,6 +123,7 @@ export class MapManager {
   private currentIconSize: POIIconSize = APP_CONFIG.iconSize || 'medium';
   private activeFilter: any[] | null = null;
   private currentStyleKey: BasemapStyleKey = APP_CONFIG.defaultBasemap || 'positron';
+  private basemapSwitchToken = 0;
   private events: MapManagerEvents = {};
 
   constructor(container: string | HTMLElement, region?: RegionMetadata, events?: MapManagerEvents) {
@@ -168,20 +203,23 @@ export class MapManager {
       features: normalizeIsochroneFeatures(region.geojson?.features),
     };
 
-    if (this.map.getSource('isochrones-source')) {
-      (this.map.getSource('isochrones-source') as maplibregl.GeoJSONSource).setData(polygonFeatures as any);
+    const isochroneSource = this.map.getSource('isochrones-source') as maplibregl.GeoJSONSource | undefined;
+    if (isochroneSource) {
+      isochroneSource.setData(polygonFeatures as any);
     } else {
       this.map.addSource('isochrones-source', {
         type: 'geojson',
         data: polygonFeatures as any,
       });
+    }
 
-      // Insert beneath POI layers if POI layers exist, otherwise add to map top
-      const beforeLayerId = this.map.getLayer('pois-favorites-halo')
-        ? 'pois-favorites-halo'
-        : (this.map.getLayer('pois-circle') ? 'pois-circle' : undefined);
+    // Insert beneath POI layers if POI layers exist, otherwise add to map top.
+    const beforeLayerId = this.map.getLayer('pois-favorites-halo')
+      ? 'pois-favorites-halo'
+      : (this.map.getLayer('pois-circle') ? 'pois-circle' : undefined);
 
-      // Polygon fill layer with tiered high-contrast opacities (28% for 5 min, 22% for 10 min, 18% for 15 min)
+    if (!this.map.getLayer('isochrones-fill')) {
+      // Polygon fill layer with tiered high-contrast opacities (28% for 5 min, 22% for 10 min, 18% for 15 min).
       this.map.addLayer(
         {
           id: 'isochrones-fill',
@@ -204,8 +242,10 @@ export class MapManager {
         },
         beforeLayerId
       );
+    }
 
-      // Polygon outline layer with crisp perimeter strokes
+    if (!this.map.getLayer('isochrones-line')) {
+      // Polygon outline layer with crisp perimeter strokes.
       this.map.addLayer(
         {
           id: 'isochrones-line',
@@ -224,8 +264,10 @@ export class MapManager {
         },
         beforeLayerId
       );
+    }
 
-      // Isochrone label layer with explicit Noto Sans Regular vector fontstack
+    if (!this.map.getLayer('isochrones-labels')) {
+      // Isochrone label layer with explicit Noto Sans Regular vector fontstack.
       this.map.addLayer(
         {
           id: 'isochrones-labels',
@@ -314,21 +356,26 @@ export class MapManager {
     this.poiData = poiGeoJSON;
     if (!this.isLoaded) return;
 
-    if (this.map.getSource('pois-source')) {
-      (this.map.getSource('pois-source') as maplibregl.GeoJSONSource).setData(poiGeoJSON as any);
-      return;
+    const poiSource = this.map.getSource('pois-source') as maplibregl.GeoJSONSource | undefined;
+    if (poiSource) {
+      poiSource.setData(poiGeoJSON as any);
+    } else {
+      this.map.addSource('pois-source', {
+        type: 'geojson',
+        data: poiGeoJSON as any,
+      });
     }
-
-    this.map.addSource('pois-source', {
-      type: 'geojson',
-      data: poiGeoJSON as any,
-    });
 
     const categoryColor = buildCategoryColorExpression();
     const mult = this.getIconSizeMultiplier(this.currentIconSize);
+    const addLayerIfMissing = (layer: any): void => {
+      if (!this.map.getLayer(layer.id)) {
+        this.map.addLayer(layer);
+      }
+    };
 
     // 1. Favorites highlight halo
-    this.map.addLayer({
+    addLayerIfMissing({
       id: 'pois-favorites-halo',
       type: 'circle',
       source: 'pois-source',
@@ -343,7 +390,7 @@ export class MapManager {
     });
 
     // 2. Base POI circle backing
-    this.map.addLayer({
+    addLayerIfMissing({
       id: 'pois-circle',
       type: 'circle',
       source: 'pois-source',
@@ -357,7 +404,7 @@ export class MapManager {
     });
 
     // 3. Primary POI vector icon badge and name label layer
-    this.map.addLayer({
+    addLayerIfMissing({
       id: 'pois-symbol',
       type: 'symbol',
       source: 'pois-source',
@@ -397,7 +444,7 @@ export class MapManager {
     });
 
     // 4. Selection outline ring
-    this.map.addLayer({
+    addLayerIfMissing({
       id: 'pois-selection-ring',
       type: 'circle',
       source: 'pois-source',
@@ -410,13 +457,10 @@ export class MapManager {
       },
     });
 
-    // Re-apply active filters and favorites halo filter if already configured
-    if (this.activeFilter) {
-      this.applyFilter(this.activeFilter);
-    }
-    if (this.favoriteIds.size > 0) {
-      this.updateFavorites(this.favoriteIds);
-    }
+    // Restore state after sources or individual layers are re-created.
+    this.applyFilter(this.activeFilter);
+    this.updateFavorites(this.favoriteIds);
+    this.setSelectedPOI(this.selectedPoiId);
   }
 
   /**
@@ -551,6 +595,19 @@ export class MapManager {
     return this.currentIconSize;
   }
 
+  /** Re-registers runtime images and restores all app-owned map state after a style change. */
+  private async restoreAppLayers(): Promise<void> {
+    this.isLoaded = true;
+    await registerCategoryImages(this.map);
+
+    if (this.region) {
+      this.renderIsochrones(this.region);
+    }
+    if (this.poiData) {
+      this.renderPOIs(this.poiData);
+    }
+  }
+
   /**
    * Switches the active OpenFreeMap vector basemap style while preserving isochrone layers,
    * POI markers, and active filters.
@@ -560,51 +617,48 @@ export class MapManager {
     this.currentStyleKey = styleKey;
     const styleUrl = BASEMAP_STYLES[styleKey].url;
 
-    return new Promise<void>((resolve) => {
-      let resolved = false;
-
-      const reapplyLayers = async () => {
-        if (resolved) return;
-        resolved = true;
-        this.map.off('styledata', handleStyleData);
-        this.map.off('style.load', handleStyleData);
-        this.isLoaded = true;
-
-        await registerCategoryImages(this.map);
-        if (this.region) {
-          this.renderIsochrones(this.region);
-        }
-        if (this.poiData) {
-          this.renderPOIs(this.poiData);
-        }
-        if (this.activeFilter) {
-          this.applyFilter(this.activeFilter);
-        }
-        if (this.selectedPoiId) {
-          this.setSelectedPOI(this.selectedPoiId);
-        }
-        if (this.favoriteIds.size > 0) {
-          this.updateFavorites(this.favoriteIds);
-        }
-        resolve();
-      };
-
-      const handleStyleData = () => {
-        if (typeof this.map.isStyleLoaded === 'function') {
-          if (this.map.isStyleLoaded()) {
-            reapplyLayers();
-          }
-        } else {
-          reapplyLayers();
-        }
-      };
-
-      // In MapLibre GL, setStyle fires 'styledata' events when new style is applied;
-      // also attach 'style.load' for test mock / alternate environment compatibility.
-      this.map.on('styledata', handleStyleData);
-      this.map.once('style.load', handleStyleData);
-
+    // Before the first map load, the normal load handler will render all stored app data.
+    if (!this.isLoaded) {
       this.map.setStyle(styleUrl);
+      return;
+    }
+
+    const switchToken = ++this.basemapSwitchToken;
+    return new Promise<void>((resolve, reject) => {
+      let settled = false;
+      let removeReadyListeners = (): void => {};
+      const handleStyleReady = async (): Promise<void> => {
+        if (settled) return;
+        settled = true;
+        removeReadyListeners();
+
+        // A newer switch owns the map now; resolve this request without restoring stale state.
+        if (switchToken !== this.basemapSwitchToken) {
+          resolve();
+          return;
+        }
+
+        try {
+          await this.restoreAppLayers();
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      };
+      removeReadyListeners = (): void => {
+        this.map.off('idle', handleStyleReady);
+        this.map.off('style.load', handleStyleReady);
+      };
+
+      this.map.once('idle', handleStyleReady);
+      this.map.once('style.load', handleStyleReady);
+
+      try {
+        this.map.setStyle(styleUrl, { transformStyle: carryOverAppLayers });
+      } catch (error) {
+        removeReadyListeners();
+        reject(error);
+      }
     });
   }
 
@@ -643,9 +697,12 @@ export class MapManager {
       const coords = (feat.geometry.coordinates as [number, number]).slice() as [number, number];
       const props = feat.properties;
 
-      const walkText = props.walk_time_minutes ? `${props.walk_time_minutes} min walk` : '>15 min walk';
-      const resBadge = props.reservation_url ? '<span class="hover-badge">📅 Reserve</span>' : '';
-      const ordBadge = props.order_url ? '<span class="hover-badge">🛍️ Order</span>' : '';
+      const walkTime = props.walk_time_minutes ?? null;
+      const reservationUrl = props.reservation_url ?? null;
+      const orderUrl = props.order_url ?? null;
+      const walkText = walkTime !== null ? `${walkTime} min walk` : '>15 min walk';
+      const resBadge = reservationUrl ? '<span class="hover-badge">📅 Reserve</span>' : '';
+      const ordBadge = orderUrl ? '<span class="hover-badge">🛍️ Order</span>' : '';
       const serviceBadges = (resBadge || ordBadge) ? `<div class="hover-badges">${resBadge}${ordBadge}</div>` : '';
 
       if (!this.hoverPopup) {

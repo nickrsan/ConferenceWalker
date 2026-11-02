@@ -7,7 +7,13 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
 
-import { loadRegionData, loadPOIData, extractAvailableCuisines } from './services/dataLoader';
+import {
+  applyDescriptionOverrides,
+  loadDescriptionOverrides,
+  loadRegionData,
+  loadPOIData,
+  extractAvailableCuisines,
+} from './services/dataLoader';
 import { MapManager } from './map/mapManager';
 import { FilterStore } from './state/filterState';
 import { FavoritesStore } from './state/favorites';
@@ -16,9 +22,12 @@ import { SidebarComponent } from './ui/sidebar';
 import { POIDetailComponent } from './ui/poiDetail';
 import { POIFeature, POIIconSize } from './types/poi';
 import { APP_CONFIG } from './config';
+import { applySettingsReset, readStoredSetting } from './state/appStorage';
 import { parseUrlState, syncStateToUrl } from './utils/urlState';
 
 async function bootstrap(): Promise<void> {
+  applySettingsReset();
+
   const mapElement = document.getElementById('map-container');
   const sidebarElement = document.getElementById('sidebar-container');
   const detailElement = document.getElementById('poi-detail-container');
@@ -50,20 +59,28 @@ async function bootstrap(): Promise<void> {
 
   try {
     // 3. Fetch Region and POI Datasets
-    const [regionData, poiCollection] = await Promise.all([
+    const [regionData, loadedPoiCollection, descriptionOverrides] = await Promise.all([
       loadRegionData('./data/region.json'),
       loadPOIData('./data/sacramento_pois.geojson'),
+      loadDescriptionOverrides('./data/poi_descriptions.json'),
     ]);
+    const poiCollection = {
+      ...loadedPoiCollection,
+      features: applyDescriptionOverrides(loadedPoiCollection.features, descriptionOverrides),
+    };
 
     filterStore.setCenterCoords(regionData.center);
     const availableCuisines = extractAvailableCuisines(poiCollection.features);
 
     // 4. Initialize Map Manager
     const mapManager = new MapManager(mapElement, regionData);
+    if (import.meta.env.DEV) {
+      (window as Window & { __conferenceWalkerMap?: MapManager }).__conferenceWalkerMap = mapManager;
+    }
 
     // Determine initial isochrones visibility (URL param > localStorage > APP_CONFIG default)
     let initialIsochrones = APP_CONFIG.showIsochronesByDefault !== false;
-    const storedIso = typeof localStorage !== 'undefined' ? localStorage.getItem('cw_show_isochrones') : null;
+    const storedIso = readStoredSetting('cw_show_isochrones');
     if (storedIso !== null) {
       initialIsochrones = storedIso === 'true';
     }
@@ -74,7 +91,7 @@ async function bootstrap(): Promise<void> {
 
     // Determine initial icon size (URL param > localStorage > APP_CONFIG default)
     let initialIconSize: POIIconSize = APP_CONFIG.iconSize || 'medium';
-    const storedIcon = typeof localStorage !== 'undefined' ? (localStorage.getItem('cw_icon_size') as POIIconSize) : null;
+    const storedIcon = readStoredSetting('cw_icon_size') as POIIconSize | null;
     if (storedIcon && ['small', 'medium', 'large', 'extra-large'].includes(storedIcon)) {
       initialIconSize = storedIcon;
     }

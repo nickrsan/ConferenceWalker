@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "test:watch": "vitest",
     "pipeline": "python3 -m pipeline.preprocess"
   },
@@ -16,6 +17,7 @@
     "opening_hours": "^3.14.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "^18.19.130",
     "@vitest/coverage-v8": "^2.1.9",
     "jsdom": "^24.1.3",

@@ -122,6 +122,9 @@ python3 -m pipeline.preprocess \
 | `--dedupe-dist` | `25.0` | Spatial distance threshold in meters |
 | `--dedupe-sim` | `80.0` | Fuzzy name similarity threshold percentage |
 
+### 3.4 Sparse JSON Output
+`pipeline.preprocess.strip_none_values()` removes dictionary entries whose value is `None` from emitted POI feature properties and each region isochrone summary. It is intentionally shallow: values such as `0`, `false`, `""`, and `[]` remain present, and both output files continue to use `json.dump(..., indent=2)` for readable diffs. Frontend consumers should normalize an omitted optional key the same way as an explicit JSON `null`.
+
 ---
 
 ## 4. Frontend Web Application (`src/`)
@@ -138,6 +141,7 @@ export interface ConferenceWalkerConfig {
   showIsochronesByDefault?: boolean;
   iconSize?: POIIconSize;
   defaultBasemap?: BasemapStyleKey;
+  settingsResetVersion?: number;
   conferenceSubtitle?: string;
   conferencePinLabel?: string;
   conferencePinTitle?: string;
@@ -152,7 +156,7 @@ export const APP_CONFIG: ConferenceWalkerConfig = {
   excludeOvertureOnlyByDefault: false,
 };
 ```
-Organizers can customize `APP_CONFIG.defaultCategories` to curate which categories are enabled by default on initial application load, and `excludeOvertureOnlyByDefault` to determine if Overture-only places are excluded on initial launch.
+Organizers can customize `APP_CONFIG.defaultCategories` to curate which categories are enabled by default on initial application load, and `excludeOvertureOnlyByDefault` to determine if Overture-only places are excluded on initial launch. `settingsResetVersion` defaults to `0`; increase it to a new integer only when intentionally resetting the allowlisted preferences documented in section 4.16.
 
 ### 4.2 Data Contracts (`src/types/poi.ts`)
 ```typescript
@@ -197,7 +201,7 @@ export interface FilterState {
   excludeOvertureOnly: boolean;
 }
 ```
-
+The POI parser treats omitted optional JSON keys like explicit `null` values: scalar fields become `null`, cuisine arrays default to `[]`, and absent sources use the existing `['osm']` fallback.
 ### 4.3 State Management
 - **`FilterStore` (`src/state/filterState.ts`)**:
   - Centralized reactive store managing multi-dimensional filtering across categories, walk distances, opening hours status, cuisines, text search, favorites, and source exclusion.
@@ -208,12 +212,22 @@ export interface FilterState {
 - **`FavoritesStore` (`src/state/favorites.ts`)**:
   - Manages starred venues persisted in `window.localStorage` under key `conference_walker_favorites_v1`.
   - Wrapped with defensive `try/catch` fallbacks to support private browsing modes and sandboxed iframes.
+  - Adds only newly deployed `APP_CONFIG.defaultSavedPois` IDs; `cw_seen_default_saved_pois` records which defaults were already delivered so an attendee's un-starred defaults stay unstarred.
 - **`DebugStore` (`src/state/debugState.ts`)**:
   - Manages application-wide debug mode displaying OpenStreetMap and Overture GERS entity IDs on cards and in the detail sheet.
   - Exposes global developer shortcuts on the window object: `window.toggleDebug()`, `window.setDebug(boolean)`, and `window.ConferenceWalkerDebug`.
 
+### 4.3.1 Organizer Description Overrides
+`public/data/poi_descriptions.json` is an optional JSON object keyed by OSM ID:
+```json
+{
+  "90498377": "Organizer-curated description text."
+}
+```
+`parseDescriptionOverrides()` trims descriptions, ignores blank/non-string entries, and accepts keys with an optional `osm_` prefix. `loadDescriptionOverrides()` logs and returns an empty map when the file is missing, malformed, or unavailable. `applyDescriptionOverrides()` creates new feature objects and replaces any matching pipeline description before POIs are passed to the map, sidebar, detail sheet, or export; description text is HTML-escaped when rendered.
+
 ### 4.4 UI Components & Settings Panel (`src/ui/sidebar.ts`, `src/ui/poiDetail.ts`)
-- **Settings Panel**: Dedicated settings drawer accessed via `#btn-toggle-settings` (`⚙️ Settings`) in the sidebar header. Contains:
+- **Settings Panel**: Dedicated settings drawer accessed via the icon-only `#btn-toggle-settings` (`⚙️`, accessible name `Settings`) in the sidebar header. The `#btn-toggle-filters` button is also icon-only and updates its accessible name and title between `Open filters` and `Close filters`. Contains:
   - `#chk-disable-overture`: Disables Overture-only data to reduce positional noise.
   - `#chk-debug-mode`: Toggles OSM & GERS ID pills on POI cards and detail sheets.
   - Modal view switching: Opening Settings automatically collapses the Filters panel, and vice versa. Closing Settings returns seamlessly to the distance-sorted venue list.
@@ -327,6 +341,7 @@ The `ConferenceWalkerConfig` interface allows event organizers to customize bran
 - `excludeOvertureOnlyByDefault: boolean`: Default exclusion setting for Overture-only venues.
 - `defaultSavedPois?: string[]`: Array of POI IDs pre-starred on launch.
 - `startWithSavedOnlyByDefault?: boolean`: Opens in Saved mode by default.
+- `settingsResetVersion?: number`: One-time reset version for allowlisted non-favorite preferences (default: `0`).
 
 ### 4.11 Resizable Sidebar & Filter Navigation Architecture (`src/ui/sidebar.ts`)
 - **Resizable Sidebar**:
@@ -351,21 +366,28 @@ The `ConferenceWalkerConfig` interface allows event organizers to customize bran
 - Re-applies visibility state automatically across basemap style switches.
 - `ISOCHRONE_LABEL_LAYOUT`: Shared MapLibre symbol layout specifying line placement, 300px repeat spacing, upright map-aligned rotation, 30-degree maximum angle, 4px collision padding, 13px text, and the Noto Sans Regular fontstack. Collision detection remains enabled so labels do not obscure each other or POI symbols.
 
-### 4.11 Basemap Switching Architecture (`src/map/mapStyles.ts`, `src/map/mapManager.ts`)
+### 4.13 Basemap Switching Architecture (`src/map/mapStyles.ts`, `src/map/mapManager.ts`)
 - Supports OpenFreeMap vector styles: `positron` (Light), `bright`, and `liberty`.
-- `MapManager.setBasemapStyle(styleKey)` swaps vector basemaps without loss of isochrones, POI markers, selection halos, or active filter expressions by hooking into `style.load` and re-applying cached layer state and active filter expressions.
+- `carryOverAppLayers(previousStyle, nextStyle)` copies app-owned GeoJSON sources and their layers in source-layer order, skipping IDs already defined by the incoming style.
+- `MapManager.setBasemapStyle(styleKey)` passes that helper as MapLibre `transformStyle`; on `idle` or `style.load`, it re-registers category images and idempotently restores isochrones, POIs, active filters, favorite highlights, and selection. A switch token prevents stale handlers from restoring an older style.
 
-### 4.12 Nearest-per-Category Algorithm (`src/state/filterState.ts`)
+### 4.14 Nearest-per-Category Algorithm (`src/state/filterState.ts`)
 When `nearestOnly: true`, candidate venues passing standard filter criteria are grouped by category. In each category group, candidates are sorted by:
 1. Walk time tier: `walk_time_minutes` (5 min < 10 min < 15 min < outside).
 2. Geodesic distance: Haversine distance in meters to conference center.
 3. Alphabetical tie-breaker.
 Only the single closest venue per category is returned.
 
-### 4.13 Accessibility (a11y) & Keyboard Navigation Architecture
+### 4.15 Accessibility (a11y) & Keyboard Navigation Architecture
 - **Semantic ARIA Roles**: `role="tablist"` and `role="tab"` for tab navigation; `role="dialog"`, `aria-modal="true"`, and descriptive `aria-label` for POI detail modals; `aria-pressed` for favorite star toggles.
 - **Keyboard Navigation**: POI cards have `tabindex="0"` with `Enter` and `Space` key activation handlers. Modal drawers attach global `Escape` listeners and manage focus cleanly.
 - **High-Contrast Focus Styles**: Comprehensive `:focus-visible` styling with 2.5px primary color outlines and `prefers-reduced-motion` animation suppression.
+
+### 4.16 Storage, Sparse Data, and Browser Verification
+- **Versioned settings reset (`src/state/appStorage.ts`)**: To reset preferences in an update, bump `APP_CONFIG.settingsResetVersion` in `src/config.ts` to a higher integer and deploy. Bootstrap compares it with `cw_settings_reset_version` (a missing/corrupt value counts as `0`), removes only `cw_show_isochrones`, `cw_icon_size`, `cw_sidebar_width`, `cw_welcome_dismissed`, `conference_walker_exclude_overture`, and `conference_walker_debug`, then stores the new version before state stores initialize. The favorites key `conference_walker_favorites_v1` and seen-default key `cw_seen_default_saved_pois` are protected; version `0` is a no-op.
+- **Favorites merge lifecycle**: `mergeDeployedDefaultFavorites(stored, seen, defaults)` preserves stored stars and adds only defaults not in the seen list. `clearFavorites()` and `setFavorites()` do not modify the seen list, which prevents a user-unstarred organizer default from returning on the next load.
+- **Sparse reader behavior**: `parseAndValidatePOIs()` normalizes absent values and explicit `null` identically; other frontend consumers should use `?? null` or `?? []` rather than truthy fallbacks where `0`, `false`, or empty strings are valid.
+- **Playwright browser smoke tests**: Install Chromium with `npx playwright install chromium`, then run `npm run test:e2e`. `playwright.config.ts` starts Vite and covers desktop (1280×800), tablet (820×1180), and Pixel 5 mobile layouts; basemap tests require access to OpenFreeMap styles and tiles. The dev-only `window.__conferenceWalkerMap` handle is available for map assertions.
 
 ---
 
@@ -386,7 +408,13 @@ npm test
 npm run test:watch
 ```
 
-### 5.3 Type Checking & Production Build
+### 5.3 Playwright End-to-End Tests
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
+### 5.4 Type Checking & Production Build
 ```bash
 # TypeScript compiler type check
 npx tsc --noEmit

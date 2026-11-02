@@ -56,8 +56,8 @@ export function generateSavedPoisJson(
         id: p.properties.id,
         name: p.properties.name,
         category: p.properties.category,
-        address: p.properties.address,
-        walk_time_minutes: p.properties.walk_time_minutes,
+        address: p.properties.address ?? null,
+        walk_time_minutes: p.properties.walk_time_minutes ?? null,
         description: p.properties.description ?? null,
       }));
   }
@@ -107,10 +107,10 @@ export function mergeExportedVenues(
 
   for (const feature of features) {
     const venue = venueMap.get(feature.properties.id);
-    if (venue && venue.description) {
-      if (!feature.properties.description) {
-        feature.properties.description = venue.description;
-      }
+    const importedDescription = venue?.description ?? null;
+    const existingDescription = feature.properties.description ?? null;
+    if (importedDescription && !existingDescription) {
+      feature.properties.description = importedDescription;
     }
   }
 }

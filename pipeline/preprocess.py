@@ -465,6 +465,11 @@ def extract_overture_pois(
         con.close()
 
 
+def strip_none_values(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Drop keys whose value is None while preserving all other values."""
+    return {key: value for key, value in data.items() if value is not None}
+
+
 def export_region_summary(region: RegionMetadata, output_path: str) -> None:
     """
     Export active conference region metadata and isochrone geometry for frontend consumption.
@@ -474,13 +479,13 @@ def export_region_summary(region: RegionMetadata, output_path: str) -> None:
         "name": region.name,
         "center": list(region.center),
         "isochrones": [
-            {
+            strip_none_values({
                 "minutes": iso.minutes,
                 "color": iso.color,
                 "fillColor": iso.fill_color,
                 "label": iso.label,
-                "area": iso.area
-            }
+                "area": iso.area,
+            })
             for iso in region.isochrones
         ],
         "geojson": region.raw_geojson
@@ -497,7 +502,7 @@ def convert_pois_to_geojson(pois: List[Dict[str, Any]]) -> Dict[str, Any]:
     features = []
     for poi in pois:
         coords = poi.get("coordinates", [0.0, 0.0])
-        props = {
+        props = strip_none_values({
             "id": poi.get("id"),
             "name": poi.get("name"),
             "category": poi.get("category"),
@@ -513,7 +518,7 @@ def convert_pois_to_geojson(pois: List[Dict[str, Any]]) -> Dict[str, Any]:
             "reservation_url": poi.get("reservation_url"),
             "order_url": poi.get("order_url"),
             "description": poi.get("description"),
-        }
+        })
         features.append({
             "type": "Feature",
             "geometry": {

@@ -55,8 +55,55 @@ import {
   MapManager,
   ICON_SIZE_MULTIPLIERS,
   ISOCHRONE_LABEL_LAYOUT,
+  carryOverAppLayers,
   normalizeIsochroneFeatures,
 } from '../src/map/mapManager';
+
+describe('carryOverAppLayers', () => {
+  it('copies application sources and layers in order while skipping style ID collisions', () => {
+    const previousStyle: any = {
+      version: 8,
+      sources: {
+        'base-source': { type: 'vector', url: 'https://example.com/base' },
+        'isochrones-source': { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+        'pois-source': { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+      },
+      layers: [
+        { id: 'base-roads', type: 'line', source: 'base-source' },
+        { id: 'isochrones-fill', type: 'fill', source: 'isochrones-source' },
+        { id: 'pois-circle', type: 'circle', source: 'pois-source' },
+        { id: 'pois-symbol', type: 'symbol', source: 'pois-source' },
+      ],
+    };
+    const nextStyle: any = {
+      version: 8,
+      sources: { 'new-base-source': { type: 'vector', url: 'https://example.com/new-base' } },
+      layers: [
+        { id: 'new-roads', type: 'line', source: 'new-base-source' },
+        { id: 'pois-circle', type: 'line', source: 'new-base-source' },
+      ],
+    };
+
+    const transformedStyle = carryOverAppLayers(previousStyle, nextStyle) as any;
+
+    expect(transformedStyle.sources).toHaveProperty('isochrones-source', previousStyle.sources['isochrones-source']);
+    expect(transformedStyle.sources).toHaveProperty('pois-source', previousStyle.sources['pois-source']);
+    expect(transformedStyle.layers.map((layer: any) => layer.id)).toEqual([
+      'new-roads',
+      'pois-circle',
+      'isochrones-fill',
+      'pois-symbol',
+    ]);
+    expect(nextStyle.sources).not.toHaveProperty('pois-source');
+    expect(nextStyle.layers).toHaveLength(2);
+  });
+
+  it('returns the next style unchanged when there is no previous style', () => {
+    const nextStyle: any = { version: 8, sources: {}, layers: [] };
+
+    expect(carryOverAppLayers(undefined, nextStyle)).toBe(nextStyle);
+  });
+});
 
 describe('normalizeIsochroneFeatures', () => {
   it('trims labels and retains polygon and multipolygon features', () => {
@@ -455,32 +502,22 @@ describe('mapStyles', () => {
     expect(mockMapInstance.setLayoutProperty).toHaveBeenCalledWith('isochrones-labels', 'visibility', 'visible');
   });
 
-  it('restores POIs, isochrones, and active filters when switching basemap styles', async () => {
+  it('carries runtime style layers and reapplies map state after the new style becomes idle', async () => {
     const container = document.createElement('div');
-    let styledataHandler: (() => void) | null = null;
-    const restoredLayers: any[] = [];
-
+    const eventHandlers = new Map<string, (event?: any) => Promise<void>>();
     const mockMapInstance: any = {
-      on: vi.fn((event: string, handler: any) => {
-        if (event === 'styledata') {
-          styledataHandler = handler;
-        }
+      on: vi.fn(),
+      once: vi.fn((event: string, handler: (event?: any) => Promise<void>) => {
+        eventHandlers.set(event, handler);
       }),
-      once: vi.fn(),
       off: vi.fn(),
-      setStyle: vi.fn(() => {
-        // Trigger styledata callback
-        if (styledataHandler) {
-          styledataHandler();
-        }
-      }),
-      isStyleLoaded: vi.fn(() => true),
+      setStyle: vi.fn(),
       hasImage: vi.fn(() => true),
       addImage: vi.fn(),
       getLayer: vi.fn(() => true),
-      getSource: vi.fn(() => false),
+      getSource: vi.fn(() => null),
       addSource: vi.fn(),
-      addLayer: vi.fn((layer: any) => restoredLayers.push(layer)),
+      addLayer: vi.fn(),
       setFilter: vi.fn(),
       setPaintProperty: vi.fn(),
       setLayoutProperty: vi.fn(),
@@ -489,10 +526,6 @@ describe('mapStyles', () => {
     const manager = new MapManager(container);
     (manager as any).map = mockMapInstance;
     (manager as any).isLoaded = true;
-
-    const renderPOIsSpy = vi.spyOn(manager, 'renderPOIs');
-    const renderIsochronesSpy = vi.spyOn(manager, 'renderIsochrones');
-    const applyFilterSpy = vi.spyOn(manager, 'applyFilter');
 
     const samplePOIs: any = {
       type: 'FeatureCollection',
@@ -504,7 +537,127 @@ describe('mapStyles', () => {
         },
       ],
     };
+    const sampleRegion: any = {
+      name: 'Sacramento',
+      center: [-121.49, 38.58],
+      geojson: { type: 'FeatureCollection', features: [] },
+    };
+    const filterExpression = ['==', ['get', 'category'], 'coffee_tea'];
 
+    (manager as any).poiData = samplePOIs;
+    (manager as any).region = sampleRegion;
+    manager.applyFilter(filterExpression);
+    manager.updateFavorites(new Set(['poi-1']));
+    manager.setSelectedPOI('poi-1');
+
+    const renderPOIsSpy = vi.spyOn(manager, 'renderPOIs');
+    const renderIsochronesSpy = vi.spyOn(manager, 'renderIsochrones');
+    const applyFilterSpy = vi.spyOn(manager, 'applyFilter');
+    const updateFavoritesSpy = vi.spyOn(manager, 'updateFavorites');
+    const setSelectedPoiSpy = vi.spyOn(manager, 'setSelectedPOI');
+
+    const styleChange = manager.setBasemapStyle('bright');
+    expect(mockMapInstance.setStyle).toHaveBeenCalledWith(
+      BASEMAP_STYLES.bright.url,
+      expect.objectContaining({ transformStyle: carryOverAppLayers })
+    );
+
+    const idleHandler = eventHandlers.get('idle');
+    expect(idleHandler).toBeDefined();
+    await idleHandler?.();
+    await styleChange;
+
+    expect(renderPOIsSpy).toHaveBeenCalledWith(samplePOIs);
+    expect(renderIsochronesSpy).toHaveBeenCalledWith(sampleRegion);
+    expect(applyFilterSpy).toHaveBeenCalledWith(filterExpression);
+    expect(updateFavoritesSpy).toHaveBeenCalledWith(new Set(['poi-1']));
+    expect(setSelectedPoiSpy).toHaveBeenCalledWith('poi-1');
+  });
+
+  it('ignores stale restore handlers after a more recent basemap switch', async () => {
+    const container = document.createElement('div');
+    const idleHandlers: Array<(event?: any) => Promise<void>> = [];
+    const mockMapInstance: any = {
+      on: vi.fn(),
+      once: vi.fn((event: string, handler: (event?: any) => Promise<void>) => {
+        if (event === 'idle') idleHandlers.push(handler);
+      }),
+      off: vi.fn(),
+      setStyle: vi.fn(),
+      hasImage: vi.fn(() => true),
+      addImage: vi.fn(),
+      getLayer: vi.fn(() => true),
+      getSource: vi.fn(() => null),
+      addSource: vi.fn(),
+      addLayer: vi.fn(),
+      setFilter: vi.fn(),
+      setPaintProperty: vi.fn(),
+      setLayoutProperty: vi.fn(),
+    };
+    const manager = new MapManager(container);
+    (manager as any).map = mockMapInstance;
+    (manager as any).isLoaded = true;
+    (manager as any).poiData = { type: 'FeatureCollection', features: [] };
+    const renderPOIsSpy = vi.spyOn(manager, 'renderPOIs');
+
+    const firstSwitch = manager.setBasemapStyle('bright');
+    const staleIdleHandler = idleHandlers[0];
+    const latestSwitch = manager.setBasemapStyle('liberty');
+    const latestIdleHandler = idleHandlers[1];
+
+    await staleIdleHandler();
+    expect(renderPOIsSpy).not.toHaveBeenCalled();
+    await latestIdleHandler();
+    await Promise.all([firstSwitch, latestSwitch]);
+
+    expect(renderPOIsSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the initial load handler when a basemap is selected before the map loads', () => {
+    const container = document.createElement('div');
+    const mockMapInstance: any = {
+      on: vi.fn(),
+      once: vi.fn(),
+      off: vi.fn(),
+      setStyle: vi.fn(),
+    };
+    const manager = new MapManager(container);
+    (manager as any).map = mockMapInstance;
+    (manager as any).isLoaded = false;
+
+    manager.setBasemapStyle('bright');
+
+    expect(mockMapInstance.setStyle).toHaveBeenCalledWith(BASEMAP_STYLES.bright.url);
+    expect(mockMapInstance.once).not.toHaveBeenCalled();
+  });
+
+  it('adds only missing POI and isochrone layers when their sources already exist', () => {
+    const container = document.createElement('div');
+    const layerIds = new Set(['pois-favorites-halo', 'pois-circle']);
+    const poiSource = { setData: vi.fn() };
+    const isochroneSource = { setData: vi.fn() };
+    const sources: Record<string, any> = {
+      'pois-source': poiSource,
+      'isochrones-source': isochroneSource,
+    };
+    const addedLayers: any[] = [];
+    const mockMapInstance: any = {
+      on: vi.fn(),
+      getLayer: vi.fn((id: string) => layerIds.has(id)),
+      getSource: vi.fn((id: string) => sources[id] || null),
+      addSource: vi.fn((id: string, source: any) => { sources[id] = source; }),
+      addLayer: vi.fn((layer: any) => {
+        layerIds.add(layer.id);
+        addedLayers.push(layer);
+      }),
+      setFilter: vi.fn(),
+      setLayoutProperty: vi.fn(),
+      setPaintProperty: vi.fn(),
+    };
+    const manager = new MapManager(container);
+    (manager as any).map = mockMapInstance;
+    (manager as any).isLoaded = true;
+    const samplePOIs: any = { type: 'FeatureCollection', features: [] };
     const sampleRegion: any = {
       name: 'Sacramento',
       center: [-121.49, 38.58],
@@ -513,16 +666,20 @@ describe('mapStyles', () => {
 
     manager.renderPOIs(samplePOIs);
     manager.renderIsochrones(sampleRegion);
-    manager.applyFilter(['==', ['get', 'category'], 'coffee_tea']);
+    manager.renderPOIs(samplePOIs);
+    manager.renderIsochrones(sampleRegion);
 
-    await manager.setBasemapStyle('bright');
-
-    expect(mockMapInstance.setStyle).toHaveBeenCalledWith(BASEMAP_STYLES.bright.url);
-    expect(renderPOIsSpy).toHaveBeenCalledWith(samplePOIs);
-    expect(renderIsochronesSpy).toHaveBeenCalledWith(sampleRegion);
-    expect(applyFilterSpy).toHaveBeenCalledWith(['==', ['get', 'category'], 'coffee_tea']);
-    expect(restoredLayers.find((layer) => layer.id === 'isochrones-labels')?.layout['symbol-placement'])
-      .toBe('line');
+    const addedLayerIds = addedLayers.map((layer) => layer.id);
+    expect(addedLayerIds).toEqual([
+      'pois-symbol',
+      'pois-selection-ring',
+      'isochrones-fill',
+      'isochrones-line',
+      'isochrones-labels',
+    ]);
+    expect(new Set(addedLayerIds).size).toBe(addedLayerIds.length);
+    expect(poiSource.setData).toHaveBeenCalledTimes(2);
+    expect(isochroneSource.setData).toHaveBeenCalledTimes(2);
   });
 
   it('initializes MapManager with defaultBasemap from APP_CONFIG', () => {

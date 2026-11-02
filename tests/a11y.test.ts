@@ -110,6 +110,33 @@ describe('Accessibility & Keyboard Navigation (a11y)', () => {
     expect(updatedFavoritesTab.getAttribute('aria-selected')).toBe('true');
   });
 
+  it('exposes accessible names and hides decorative header icons from assistive technology', () => {
+    const sidebar = new SidebarComponent(
+      sidebarContainer,
+      filterStore,
+      favoritesStore,
+      { onSelectPOI: () => {} },
+      debugStore,
+      false
+    );
+    sidebar.setData(samplePOIs, mockRegion, []);
+
+    const settingsButton = sidebarContainer.querySelector('#btn-toggle-settings') as HTMLButtonElement;
+    expect(settingsButton.tagName).toBe('BUTTON');
+    expect(settingsButton.getAttribute('aria-label')).toBe('Settings');
+    expect(settingsButton.getAttribute('aria-controls')).toBe('settings-panel');
+    expect(settingsButton.querySelector('.icon')?.getAttribute('aria-hidden')).toBe('true');
+
+    const filtersButton = sidebarContainer.querySelector('#btn-toggle-filters') as HTMLButtonElement;
+    expect(filtersButton.tagName).toBe('BUTTON');
+    expect(filtersButton.getAttribute('aria-label')).toBe('Open filters');
+    expect(filtersButton.getAttribute('aria-expanded')).toBe('false');
+    expect(filtersButton.querySelector('.icon')?.getAttribute('aria-hidden')).toBe('true');
+
+    filtersButton.focus();
+    expect(document.activeElement).toBe(filtersButton);
+  });
+
   it('supports keyboard navigation (Enter and Space) on POI list items', () => {
     let selectedPoi: POIFeature | null = null;
     const sidebar = new SidebarComponent(

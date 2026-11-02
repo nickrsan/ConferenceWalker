@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SidebarComponent } from '../src/ui/sidebar';
 import { FilterStore } from '../src/state/filterState';
 import { FavoritesStore } from '../src/state/favorites';
@@ -237,6 +237,61 @@ describe('SidebarComponent', () => {
     expect(badges[0].textContent).toContain('Reserve');
     expect(badges[1].textContent).toContain('🛍️');
     expect(badges[1].textContent).toContain('Order');
+  });
+
+  it('renders icon-only header toggles with accessible labels and matching titles', () => {
+    const sidebar = new SidebarComponent(
+      container,
+      filterStore,
+      favoritesStore,
+      { onSelectPOI: () => {} },
+      debugStore,
+      false
+    );
+    sidebar.setData(mockFeatures, mockRegion, []);
+
+    const settingsButton = container.querySelector('#btn-toggle-settings') as HTMLButtonElement;
+    expect(settingsButton.textContent?.trim()).toBe('⚙️');
+    expect(settingsButton.children).toHaveLength(1);
+    expect(settingsButton.querySelector('.icon')?.getAttribute('aria-hidden')).toBe('true');
+    expect(settingsButton.getAttribute('aria-label')).toBe('Settings');
+    expect(settingsButton.title).toBe('Settings');
+    expect(settingsButton.getAttribute('aria-controls')).toBe('settings-panel');
+    expect(settingsButton.getAttribute('aria-expanded')).toBe('false');
+
+    const filtersButton = container.querySelector('#btn-toggle-filters') as HTMLButtonElement;
+    expect(filtersButton.textContent?.trim()).toBe('🎛️');
+    expect(filtersButton.children).toHaveLength(1);
+    expect(filtersButton.querySelector('.icon')?.getAttribute('aria-hidden')).toBe('true');
+    expect(filtersButton.getAttribute('aria-label')).toBe('Open filters');
+    expect(filtersButton.title).toBe('Open filters');
+    expect(filtersButton.getAttribute('aria-expanded')).toBe('false');
+
+    filtersButton.click();
+    const closeFiltersButton = container.querySelector('#btn-toggle-filters') as HTMLButtonElement;
+    expect(closeFiltersButton.textContent?.trim()).toBe('✕');
+    expect(closeFiltersButton.getAttribute('aria-label')).toBe('Close filters');
+    expect(closeFiltersButton.title).toBe('Close filters');
+    expect(closeFiltersButton.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('uses fallback settings when browser storage reads are blocked', () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('Storage is blocked');
+    });
+
+    try {
+      expect(() => new SidebarComponent(
+        container,
+        filterStore,
+        favoritesStore,
+        { onSelectPOI: () => {} },
+        debugStore,
+        false
+      )).not.toThrow();
+    } finally {
+      getItemSpy.mockRestore();
+    }
   });
 
   it('opens and closes the settings panel, coordinating with filters and results', () => {

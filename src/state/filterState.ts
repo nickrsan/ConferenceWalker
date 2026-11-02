@@ -136,7 +136,7 @@ export class FilterStore {
 
     // 0. Exclude data only sourced from Overture Maps
     if (this.state.excludeOvertureOnly) {
-      const rawSources = props.sources || [];
+      const rawSources = props.sources ?? [];
       const sources: string[] = Array.isArray(rawSources)
         ? rawSources
         : typeof rawSources === 'string'
@@ -161,7 +161,8 @@ export class FilterStore {
     }
 
     // 3. Walk time filter
-    const walkVal: number | 'outside' = props.walk_time_minutes !== null ? props.walk_time_minutes : 'outside';
+    const walkTime = props.walk_time_minutes ?? null;
+    const walkVal: number | 'outside' = walkTime !== null ? walkTime : 'outside';
     if (!this.state.allowedWalkTimes.has(walkVal)) {
       return false;
     }
@@ -169,9 +170,11 @@ export class FilterStore {
     // 4. Text search query
     if (this.state.searchQuery.trim()) {
       const q = this.state.searchQuery.trim().toLowerCase();
-      const nameMatch = props.name.toLowerCase().includes(q);
-      const addrMatch = props.address ? props.address.toLowerCase().includes(q) : false;
-      const cuisineMatch = props.cuisines.some((c) => c.toLowerCase().includes(q));
+      const nameMatch = (props.name ?? '').toLowerCase().includes(q);
+      const address = props.address ?? null;
+      const cuisines = props.cuisines ?? [];
+      const addrMatch = address ? address.toLowerCase().includes(q) : false;
+      const cuisineMatch = cuisines.some((c) => c.toLowerCase().includes(q));
       if (!nameMatch && !addrMatch && !cuisineMatch) {
         return false;
       }
@@ -180,7 +183,8 @@ export class FilterStore {
     // 5. Cuisine filter (applies to restaurants or venues tagged with cuisines)
     if (this.state.selectedCuisines.size > 0) {
       if (props.category === 'restaurant') {
-        const hasMatchingCuisine = props.cuisines.some((c) => this.state.selectedCuisines.has(c));
+        const cuisines = props.cuisines ?? [];
+        const hasMatchingCuisine = cuisines.some((c) => this.state.selectedCuisines.has(c));
         if (!hasMatchingCuisine) {
           return false;
         }
@@ -189,7 +193,7 @@ export class FilterStore {
 
     // 6. Open Now filter
     if (this.state.openNowOnly) {
-      const status = evaluateOpeningHours(props.opening_hours, now);
+      const status = evaluateOpeningHours(props.opening_hours ?? null, now);
       if (status === 'open') {
         return true;
       }

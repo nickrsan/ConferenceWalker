@@ -15,6 +15,7 @@ import { calculateDistanceMeters, formatDistance } from '../utils/directions';
 import { isExportModeEnabled, downloadSavedPoisFile } from '../utils/exportSaved';
 import { BasemapStyleKey } from '../map/mapStyles';
 import { APP_CONFIG } from '../config';
+import { readStoredSetting } from '../state/appStorage';
 
 export const MIN_SIDEBAR_WIDTH = 300;
 export const MAX_SIDEBAR_WIDTH = 700;
@@ -70,24 +71,23 @@ export class SidebarComponent {
     this.debugStore = debugStore || new DebugStore();
     this.isFiltersOpen = initialFiltersOpen;
 
-    const savedIso = typeof localStorage !== 'undefined' ? localStorage.getItem('cw_show_isochrones') : null;
+    const savedIso = readStoredSetting('cw_show_isochrones');
     if (savedIso !== null) {
       this.showIsochrones = savedIso === 'true';
     } else if (APP_CONFIG.showIsochronesByDefault !== undefined) {
       this.showIsochrones = APP_CONFIG.showIsochronesByDefault;
     }
 
-    const savedIcon = typeof localStorage !== 'undefined' ? (localStorage.getItem('cw_icon_size') as POIIconSize) : null;
+    const savedIcon = readStoredSetting('cw_icon_size') as POIIconSize | null;
     if (savedIcon && ['small', 'medium', 'large', 'extra-large'].includes(savedIcon)) {
       this.currentIconSize = savedIcon;
     } else if (APP_CONFIG.iconSize) {
       this.currentIconSize = APP_CONFIG.iconSize;
     }
 
-    this.isWelcomeDismissed =
-      typeof localStorage !== 'undefined' && localStorage.getItem('cw_welcome_dismissed') === 'true';
+    this.isWelcomeDismissed = readStoredSetting('cw_welcome_dismissed') === 'true';
 
-    const storedWidth = typeof localStorage !== 'undefined' ? localStorage.getItem('cw_sidebar_width') : null;
+    const storedWidth = readStoredSetting('cw_sidebar_width');
     if (storedWidth) {
       const parsed = parseInt(storedWidth, 10);
       if (!isNaN(parsed) && parsed >= MIN_SIDEBAR_WIDTH && parsed <= MAX_SIDEBAR_WIDTH) {
@@ -325,10 +325,10 @@ export class SidebarComponent {
               id="btn-toggle-settings"
               aria-expanded="${this.isSettingsOpen}"
               aria-label="Settings"
+              aria-controls="settings-panel"
               title="Settings"
             >
-              <span class="icon">⚙️</span>
-              <span>Settings</span>
+              <span class="icon" aria-hidden="true">⚙️</span>
             </button>
             <button
               type="button"
@@ -336,9 +336,9 @@ export class SidebarComponent {
               id="btn-toggle-filters"
               aria-expanded="${this.isFiltersOpen}"
               aria-label="${this.isFiltersOpen ? 'Close filters' : 'Open filters'}"
+              title="${this.isFiltersOpen ? 'Close filters' : 'Open filters'}"
             >
-              <span class="icon">${this.isFiltersOpen ? '✕' : '🎛️'}</span>
-              <span>${this.isFiltersOpen ? 'Close' : 'Filters'}</span>
+              <span class="icon" aria-hidden="true">${this.isFiltersOpen ? '✕' : '🎛️'}</span>
             </button>
           </div>
         </div>
@@ -583,9 +583,17 @@ export class SidebarComponent {
                 const isSelected = p.id === this.selectedPoiId;
                 const catMeta = CATEGORY_META[p.category];
                 const isFav = favorites.has(p.id);
-                const status = evaluateOpeningHours(p.opening_hours);
+                const openingHours = p.opening_hours ?? null;
+                const status = evaluateOpeningHours(openingHours);
                 const badge = getOpeningBadge(status);
-                const walkText = p.walk_time_minutes ? `${p.walk_time_minutes} min` : '>15 min';
+                const walkTime = p.walk_time_minutes ?? null;
+                const walkText = walkTime !== null ? `${walkTime} min` : '>15 min';
+                const address = p.address ?? null;
+                const reservationUrl = p.reservation_url ?? null;
+                const orderUrl = p.order_url ?? null;
+                const cuisines = p.cuisines ?? [];
+                const osmId = p.osm_id ?? null;
+                const overtureId = p.overture_id ?? null;
 
                 const distMeters = this.region?.center
                   ? calculateDistanceMeters(this.region.center, feat.geometry.coordinates)
@@ -609,23 +617,23 @@ export class SidebarComponent {
                       </button>
                     </div>
                     <h3 class="poi-card-name">${p.name}</h3>
-                    ${p.address ? `<div class="poi-card-address">${p.address}</div>` : ''}
+                    ${address ? `<div class="poi-card-address">${address}</div>` : ''}
                     <div class="poi-card-badges">
                       <span class="walk-badge-sm">${distanceDisplay}</span>
                       <span class="status-badge-sm ${badge.className}">${badge.text}</span>
                       ${
-                        p.reservation_url
+                        reservationUrl
                           ? `<span class="service-badge-sm" title="Online Reservations Available">📅 Reserve</span>`
                           : ''
                       }
                       ${
-                        p.order_url
+                        orderUrl
                           ? `<span class="service-badge-sm" title="Online Ordering Available">🛍️ Order</span>`
                           : ''
                       }
                       ${
-                        p.cuisines && p.cuisines.length > 0
-                          ? `<span class="cuisine-badge-sm">${p.cuisines[0].replace(/_/g, ' ')}</span>`
+                        cuisines.length > 0
+                          ? `<span class="cuisine-badge-sm">${cuisines[0].replace(/_/g, ' ')}</span>`
                           : ''
                       }
                     </div>
@@ -633,8 +641,8 @@ export class SidebarComponent {
                       this.debugStore.isDebugMode()
                         ? `
                       <div class="poi-card-debug-ids">
-                        ${p.osm_id ? `<span class="id-pill osm-pill">OSM: ${p.osm_id}</span>` : ''}
-                        ${p.overture_id ? `<span class="id-pill gers-pill">GERS: ${p.overture_id}</span>` : ''}
+                        ${osmId ? `<span class="id-pill osm-pill">OSM: ${osmId}</span>` : ''}
+                        ${overtureId ? `<span class="id-pill gers-pill">GERS: ${overtureId}</span>` : ''}
                       </div>
                     `
                         : ''
